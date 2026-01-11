@@ -1,0 +1,83 @@
+services:
+  core:
+    image: ghcr.io/uva-cci/paprika:${TAG:-latest}
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp
+    networks:
+      - paprika
+    # dimitris - ADDED THIS SECTION:
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    # -----------------
+    expose:
+      - 3000
+    # dimitris - added ports attribute
+    ports:
+      - "3000:3000"
+    volumes:
+      - log_data:/var/log/paprika
+    depends_on:
+      neo4j:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      # dimitris - changed from production to development
+      # - ENV=production
+      - ENV=development
+      - HOST=0.0.0.0
+      - PORT=3000
+      - NEO4J_URL=bolt://neo4j:7687
+      - REDIS_URL=redis:6379
+
+  neo4j:
+    image: neo4j:5.26.17-ubi9
+    restart: on-failure
+    networks:
+      - paprika
+    env_file:
+      - .env
+    volumes:
+      - neo4j_data:/data
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    healthcheck:
+      test: "neo4j-admin server status"
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+  redis:
+    image: redis:8.4.0
+    restart: on-failure
+    networks:
+      - paprika
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    env_file:
+      - .env
+    command: ["redis-server", "--appendonly", "yes"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+networks:
+  paprika:
+    driver: bridge
+    # internal: true
+
+volumes:
+  log_data:
+  neo4j_data:
+  redis_data:
