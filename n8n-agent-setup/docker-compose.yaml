@@ -1,6 +1,7 @@
 services:
   n8n:
-    image: n8nio/n8n:latest
+    # image: n8nio/n8n:latest -- dimitris: deleted for python fix
+    build: .
     container_name: n8n-local
     restart: always
     ports:
