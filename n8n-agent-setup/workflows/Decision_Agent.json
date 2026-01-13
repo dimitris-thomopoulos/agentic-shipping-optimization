@@ -1,0 +1,290 @@
+{
+  "name": "Decision Agent",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "fc728964-1c1b-471a-936d-e570101112f7",
+      "name": "When clicking ‘Test workflow’"
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "{\n  \"batch_id\": \"BATCH-001\",\n  \"dpp_data\": { \"origin\": \"Vietnam\", \"material\": \"Cotton\" },\n  \"agent_assessments\": {\n    \"compliance_agent\": { \"status\": \"FAIL\", \"reason\": \"Missing pesticide certification\" },\n    \"semantics_agent\": { \"status\": \"PASS\", \"risk_score\": 0.1 }\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        220,
+        0
+      ],
+      "id": "033481ec-1284-445a-a19a-2464ff5f0aa4",
+      "name": "Mock merged input"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=[\n  {\n    \"batch_id\": \"BATCH-001\",\n    \"dpp_data\": {\n      \"origin\": \"Vietnam\",\n      \"material\": \"Cotton\"\n    },\n    \"agent_assessments\": {\n      \"compliance_agent\": {\n        \"status\": \"FAIL\",\n        \"reason\": \"Missing pesticide certification\"\n      },\n      \"semantics_agent\": {\n        \"status\": \"PASS\",\n        \"risk_score\": 0.1\n      }\n    }\n  }\n]",
+        "options": {
+          "systemMessage": "You are the Final Decision Authority in a Logistics Supply Chain.\n\nYou receive assessments from a 'Compliance Agent' and a 'Semantics Agent'.\n\nYOUR LOGIC:\n1. If ANY agent reports a \"FAIL\" status, the final decision is \"FLAGGED\".\n2. If all agents report \"PASS\", the final decision is \"GOOD\".\n\nOUTPUT FORMAT:\nYou must output ONLY a valid JSON object with no markdown formatting.\n{\n  \"final_decision\": \"GOOD\" | \"FLAGGED\",\n  \"rationale\": \"Explanation of why...\",\n  \"solver_updates\": \"If flagged, suggest what constraints to add (e.g., 'Avoid Route X')\"\n}"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        440,
+        0
+      ],
+      "id": "3cbd81bc-abe5-4de5-a3d9-e29ce714523f",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "model": "gemma3:1b",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [
+        440,
+        240
+      ],
+      "id": "341e9840-2a3c-46f3-bbf7-0ac54deb6803",
+      "name": "Ollama Chat Model",
+      "credentials": {
+        "ollamaApi": {
+          "id": "JbZLuRAuCPt16sy4",
+          "name": "Ollama account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "language": "python",
+        "pythonCode": "import json\nimport re\n\n# 1. Grab the raw text coming from the AI Agent\n# We use .get() to avoid errors if the field is missing\nai_text = items[0].json.get('output', '')\n\n# 2. Clean up the markdown formatting (remove ```json and ```)\nclean_text = re.sub(r'```json\\n?|```', '', ai_text).strip()\n\n# 3. Parse the text into a real JSON object\ntry:\n    decision_data = json.loads(clean_text)\nexcept json.JSONDecodeError:\n    # Fallback if AI output bad JSON (prevents workflow crash)\n    decision_data = {\"final_decision\": \"ERROR\", \"rationale\": \"AI returned invalid JSON\"}\n\n# 4. Return the clean object to n8n\nreturn [{\"json\": decision_data}]"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        800,
+        0
+      ],
+      "id": "a7f984d6-41e9-4955-9b96-cfc0f2e3572f",
+      "name": "Code"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "44ca6170-925a-434c-8611-01dec89f0d25",
+                    "leftValue": "={{ $json.final_decision }}",
+                    "rightValue": "FLAGGED",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.final_decision }}",
+                    "rightValue": "GOOD",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        1020,
+        0
+      ],
+      "id": "8d943eeb-c37e-42d1-981c-7a1beeba5b80",
+      "name": "Switch",
+      "alwaysOutputData": false,
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "f7601f91-faaa-4b66-a6a5-66e3d633047c",
+              "name": "API message",
+              "value": "\"Status\": \"Ready for Dispatch\"",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1260,
+        80
+      ],
+      "id": "2a086c5e-3e9a-471d-b0e0-d5f253b13bb3",
+      "name": "Shipment authorized"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "5449a0c9-2ce0-4915-9ca0-dc37cf5f36da",
+              "name": "status",
+              "value": "FLAGGED",
+              "type": "string"
+            },
+            {
+              "id": "94292295-f9fb-49b5-b4a2-e5f5325e8db8",
+              "name": "new_constraints",
+              "value": "={{ $json.solver_updates }}",
+              "type": "string"
+            },
+            {
+              "id": "6604a565-608b-4c39-9d4e-c38d93c58860",
+              "name": "reason",
+              "value": "={{ $json.rationale }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1260,
+        -80
+      ],
+      "id": "d1116b6e-59ef-42bc-b8c9-fba2cbad217e",
+      "name": "Generate feedback"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When clicking ‘Test workflow’": {
+      "main": [
+        [
+          {
+            "node": "Mock merged input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mock merged input": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Generate feedback",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Shipment authorized",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "63046ca9-8d32-4bd9-9bd1-e9ab4f526a45",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "265d600dde9e4274dbbab9d063475fc67aec7c4ee4bba26fffa713ab4a545af4"
+  },
+  "id": "ppWmnHNj2zhZRmAz",
+  "tags": []
+}
