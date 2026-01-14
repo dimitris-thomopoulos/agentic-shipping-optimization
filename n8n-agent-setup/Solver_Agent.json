@@ -1,5 +1,5 @@
 {
-  "name": "Fastest Path Solver",
+  "name": "Solver Agent",
   "nodes": [
     {
       "parameters": {
@@ -19,7 +19,7 @@
     {
       "parameters": {
         "language": "python",
-        "pythonCode": "import heapq\n\ndef dijkstra(graph, origin, destination, weight_key):\n    pq = [(0, origin, [origin])]\n    visited = set()\n\n    while pq:\n        cost, node, path = heapq.heappop(pq)\n\n        if node == destination:\n            return cost, path\n\n        if node in visited:\n            continue\n        visited.add(node)\n\n        for neighbor, weights in graph.get(node, {}).items():\n            heapq.heappush(\n                pq,\n                (cost + weights[weight_key], neighbor, path + [neighbor])\n            )\n\n    return float(\"inf\"), []\n\n\n# n8n entry point\ninput_json = _input.all()[0][\"json\"]\n\nresults = []\n\nfor shipment in input_json[\"shipments\"]:\n    origin = shipment[\"origin\"]\n    destination = shipment[\"destination\"]\n    priority = shipment.get(\"priority\", \"Normal\")\n    edges = shipment[\"logisticsNetwork\"][\"edges\"]\n\n    # Build graph\n    graph = {}\n    for e in edges:\n        u, v = e[\"from\"], e[\"to\"]\n        graph.setdefault(u, {})[v] = {\n            \"time\": e[\"timeHours\"],\n            \"cost\": e[\"costEUR\"]\n        }\n\n    # Priority logic\n    if priority == \"High\":\n        time, path = dijkstra(graph, origin, destination, \"time\")\n        cost, _ = dijkstra(graph, origin, destination, \"cost\")\n    else:\n        cost, path = dijkstra(graph, origin, destination, \"cost\")\n        time, _ = dijkstra(graph, origin, destination, \"time\")\n\n    for batch in shipment[\"batches\"]:\n        results.append({\n            \"batchId\": batch[\"batchId\"],\n            \"shipmentId\": shipment[\"shipmentId\"],\n            \"priority\": priority,\n            \"routePlan\": {\n                \"path\": path,\n                \"etaHours\": round(time, 2),\n                \"totalCostEUR\": round(cost, 2)\n            }\n        })\n\n# ✅ THIS is what n8n expects\nreturn results\n"
+        "pythonCode": "import heapq # For priority queue implementation\n\ndef dijkstra(graph, origin, destination, weight_key):\n    pq = [(0, origin, [origin])]\n    visited = set()\n\n    while pq:\n        cost, node, path = heapq.heappop(pq) \n\n        if node == destination: # Found the shortest path to destination\n            return cost, path\n\n        if node in visited: # Already visited\n            continue\n        visited.add(node)\n\n        for neighbor, weights in graph.get(node, {}).items(): # Explore neighbors\n            heapq.heappush(\n                pq,\n                (cost + weights[weight_key], neighbor, path + [neighbor])\n            )\n\n    return float(\"inf\"), []\n\n\n# n8n entry point\ninput_json = _input.all()[0][\"json\"] # Get the input JSON\n\nresults = []\n\n# Process each shipment\nfor shipment in input_json[\"shipments\"]: \n    origin = shipment[\"origin\"]\n    destination = shipment[\"destination\"]\n    priority = shipment.get(\"priority\", \"Normal\")\n    edges = shipment[\"logisticsNetwork\"][\"edges\"]\n\n    # Build graph\n    graph = {}\n    for e in edges:\n        u, v = e[\"from\"], e[\"to\"]\n        graph.setdefault(u, {})[v] = {\n            \"time\": e[\"timeHours\"],\n            \"cost\": e[\"costEUR\"]\n        }\n\n    # Priority logic\n    priority = priority.lower()\n\n    if priority == \"express\":\n        # Absolute fastest route\n        time, path = dijkstra(graph, origin, destination, \"time\")\n        cost, _ = dijkstra(graph, origin, destination, \"cost\")\n\n    elif priority == \"high\":\n        # Time-first, cost secondary\n        time, path = dijkstra(graph, origin, destination, \"time\")\n        cost, _ = dijkstra(graph, origin, destination, \"cost\")\n\n    elif priority == \"medium\":\n        # Cost-first, time secondary\n        cost, path = dijkstra(graph, origin, destination, \"cost\")\n        time, _ = dijkstra(graph, origin, destination, \"time\")\n\n    else:  # low\n        # Cheapest possible route\n        cost, path = dijkstra(graph, origin, destination, \"cost\")\n        time, _ = dijkstra(graph, origin, destination, \"time\")\n\n    # Record results for each batch\n    for batch in shipment[\"batches\"]:\n        results.append({\n            \"batchId\": batch[\"batchId\"],\n            \"shipmentId\": shipment[\"shipmentId\"],\n            \"priority\": priority,\n            \"routePlan\": {\n                \"path\": path,\n                \"etaHours\": round(time, 2),\n                \"totalCostEUR\": round(cost, 2)\n            }\n        })\n\n# Output results\nreturn { \"shipments\": results }\n"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -40,6 +40,20 @@
       ],
       "id": "8b75e905-7da2-417b-bfc7-e64f6f7d3d4e",
       "name": "When clicking ‘Test workflow’"
+    },
+    {
+      "parameters": {
+        "operation": "toJson",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        600,
+        -20
+      ],
+      "id": "bb35979d-5c3e-48bf-b3cb-9e66b007044e",
+      "name": "Convert to File"
     }
   ],
   "pinData": {},
@@ -65,13 +79,29 @@
           }
         ]
       ]
+    },
+    "Code": {
+      "main": [
+        [
+          {
+            "node": "Convert to File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert to File": {
+      "main": [
+        []
+      ]
     }
   },
   "active": false,
   "settings": {
     "executionOrder": "v1"
   },
-  "versionId": "f54d50e5-aa38-4818-9dcc-19f13d4acab8",
+  "versionId": "96abde68-f374-4bf5-a9ce-17f1957cd163",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "97c83db197093a5a319a9eb8f4bf1f578f111e0f3079bbf4bf8c5206d56a3daf"
