@@ -15,6 +15,7 @@ services:
       - GENERIC_TIMEZONE=Europe/Amsterdam # Change to your timezone
     volumes:
       - n8n_data:/home/node/.n8n
+      - ./synthetic-data/syntheticdata.json:/home/node/.n8n/syntheticdata.json
     extra_hosts:
       - "host.docker.internal:host-gateway" # Allows n8n to talk to Ollama on your host machine
 
