@@ -15,8 +15,17 @@ services:
       - GENERIC_TIMEZONE=Europe/Amsterdam # Change to your timezone
     volumes:
       - n8n_data:/home/node/.n8n
+      - /Users/zoeoggel/n8n_data:/data/host
     extra_hosts:
       - "host.docker.internal:host-gateway" # Allows n8n to talk to Ollama on your host machine
+  qdrant:
+    image: qdrant/qdrant:latest
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - ./qdrant_storage:/qdrant/storage
+
 
 volumes:
   n8n_data:
