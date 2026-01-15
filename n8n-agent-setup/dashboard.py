@@ -7,7 +7,10 @@ import time
 # --- CONFIGURATION ---
 # 1. Check your Docker port! (It's likely 9090 or 5679 based on your history)
 N8N_PORT = "9090" 
-N8N_WEBHOOK_URL = f"http://localhost:{N8N_PORT}/webhook/process-batch"
+# dimitris - disabled this: this is for LOCALHOST N8N!
+# N8N_WEBHOOK_URL = f"http://localhost:{N8N_PORT}/webhook/process-batch"
+N8N_WEBHOOK_URL = f"https://lisaselma.app.n8n.cloud/webhook-test/process-batch"
+
 
 # 2. REPLACE THIS LINK! 
 # Go to Google Sheet -> File -> Share -> Publish to Web -> Select "Sheet1" and "CSV" -> Click Publish -> Copy Link
