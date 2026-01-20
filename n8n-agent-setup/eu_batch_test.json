@@ -1,0 +1,92 @@
+[
+  {
+    "batch_id": "EU-BATCH-001",
+    "timestamp": "2023-10-28T08:00:00Z",
+    "dpp_data": { "origin": "Munich, Germany", "destination": "Paris, France", "material": "Recycled Polyester" },
+    "agent_assessments": {
+      "compliance_agent": { "status": "PASS", "risk_level": "LOW" },
+      "semantics_agent": { "status": "PASS", "notes": "Standard shipment" }
+    }
+  },
+  {
+    "batch_id": "EU-BATCH-002",
+    "timestamp": "2023-10-28T08:05:00Z",
+    "dpp_data": { "origin": "Milan, Italy", "destination": "Berlin, Germany", "material": "Leather" },
+    "agent_assessments": {
+      "compliance_agent": { "status": "FAIL", "reason": "Missing Chrome-VI test report", "risk_level": "HIGH" },
+      "semantics_agent": { "status": "PASS", "notes": "Valid HS Code" }
+    }
+  },
+  {
+    "batch_id": "EU-BATCH-003",
+    "timestamp": "2023-10-28T08:10:00Z",
+    "dpp_data": { "origin": "Warsaw, Poland", "destination": "Madrid, Spain", "material": "Cotton" },
+    "agent_assessments": {
+      "compliance_agent": { "status": "PASS", "risk_level": "LOW" },
+      "semantics_agent": { "status": "PASS", "notes": "Clearance OK" }
+    }
+  },
+  {
+    "batch_id": "EU-BATCH-004",
+    "timestamp": "2023-10-28T08:15:00Z",
+    "dpp_data": { "origin": "Lyon, France", "destination": "Rome, Italy", "material": "Synthetic Blend" },
+    "agent_assessments": {
+      "compliance_agent": { "status": "FAIL", "reason": "Carbon footprint data incomplete", "risk_level": "MEDIUM" },
+      "semantics_agent": { "status": "FAIL", "notes": "Ambiguous product category" }
+    }
+  },
+  {
+    "batch_id": "EU-BATCH-005",
+    "timestamp": "2023-10-28T08:20:00Z",
+    "dpp_data": { "origin": "Barcelona, Spain", "destination": "Amsterdam, Netherlands", "material": "Wool" },
+    "agent_assessments": {
+      "compliance_agent": { "status": "PASS", "risk_level": "LOW" },
+      "semantics_agent": { "status": "PASS", "notes": "Verified" }
+    }
+  },
+  {
+    "batch_id": "EU-BATCH-006",
+    "timestamp": "2023-10-28T08:25:00Z",
+    "dpp_data": { "origin": "Porto, Portugal", "destination": "Brussels, Belgium", "material": "Cork" },
+    "agent_assessments": {
+      "compliance_agent": { "status": "FAIL", "reason": "Invalid batch ID format in supplier db", "risk_level": "LOW" },
+      "semantics_agent": { "status": "PASS", "notes": "Format error" }
+    }
+  },
+  {
+    "batch_id": "EU-BATCH-007",
+    "timestamp": "2023-10-28T08:30:00Z",
+    "dpp_data": { "origin": "Athens, Greece", "destination": "Vienna, Austria", "material": "Cotton" },
+    "agent_assessments": {
+      "compliance_agent": { "status": "PASS", "risk_level": "LOW" },
+      "semantics_agent": { "status": "PASS", "notes": "All green" }
+    }
+  },
+  {
+    "batch_id": "EU-BATCH-008",
+    "timestamp": "2023-10-28T08:35:00Z",
+    "dpp_data": { "origin": "Hamburg, Germany", "destination": "Prague, Czechia", "material": "Nylon" },
+    "agent_assessments": {
+      "compliance_agent": { "status": "PASS", "risk_level": "LOW" },
+      "semantics_agent": { "status": "PASS", "notes": "Expedited" }
+    }
+  },
+  {
+    "batch_id": "EU-BATCH-009",
+    "timestamp": "2023-10-28T08:40:00Z",
+    "dpp_data": { "origin": "Dublin, Ireland", "destination": "Paris, France", "material": "Linen" },
+    "agent_assessments": {
+      "compliance_agent": { "status": "FAIL", "reason": "Phytosanitary certificate expired", "risk_level": "CRITICAL" },
+      "semantics_agent": { "status": "FAIL", "notes": "Doc mismatch" }
+    }
+  },
+  {
+    "batch_id": "EU-BATCH-010",
+    "timestamp": "2023-10-28T08:45:00Z",
+    "dpp_data": { "origin": "Stockholm, Sweden", "destination": "Copenhagen, Denmark", "material": "Viscose" },
+    "agent_assessments": {
+      "compliance_agent": { "status": "PASS", "risk_level": "LOW" },
+      "semantics_agent": { "status": "PASS", "notes": "Nordic region compliant" }
+    }
+  }
+]

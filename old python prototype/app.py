@@ -73,7 +73,7 @@ if uploaded_file is not None:
         st.error("Invalid JSON file.")
         st.stop()
 
-    if st.button("🚀 Process Orders", type="secondary"):
+    if st.button("🚀 Process Orders", type="primary"):
         st.markdown("---")
         
         # --- PROCESSING LOOP ---
