@@ -1,0 +1,1251 @@
+{
+  "shipments": [
+    {
+      "shipmentId": "SHIP-001",
+      "origin": "Valencia",
+      "destination": "Bremerhaven",
+      "priority": "Medium",
+      "batches": [
+        {
+          "batchId": "BAT-SHIP-001-001",
+          "shipmentId": "SHIP-001",
+          "timestamp": "2025-12-14T14:43:35.221921",
+          "orders": [
+            {
+              "id": "ORD-BAT-SHIP-001-001-001",
+              "batchId": "BAT-SHIP-001-001",
+              "brand": "Casual Comfort",
+              "quantity": 2,
+              "garments": [
+                {
+                  "id": "GAR-ORD-BAT-SHIP-001-001-001-001",
+                  "orderId": "ORD-BAT-SHIP-001-001-001",
+                  "dpp": {
+                    "$schema": "https://schemas.dppmcp.com/textiles/garment.json",
+                    "dppMetadata": {
+                      "passportIdentifier": "https://id.gs1.org/01/09506000134039",
+                      "passportVersion": "1.0.0",
+                      "issuedDate": "2026-01-22",
+                      "garmentId": "GAR-ORD-BAT-SHIP-001-001-001-001",
+                      "orderId": "ORD-BAT-SHIP-001-001-001"
+                    },
+                    "productIdentification": {
+                      "productName": "Silk Scarf",
+                      "productCategory": "textiles",
+                      "productType": "garment"
+                    },
+                    "manufacturer": {
+                      "name": "Green Threads Ltd",
+                      "country": "GB"
+                    },
+                    "rawMaterialsAndProcess": {
+                      "materials": [
+                        {
+                          "materialType": "hemp",
+                          "percentage": 70,
+                          "certified": false,
+                          "certification": "BCI"
+                        }
+                      ],
+                      "sourceCountry": "CN",
+                      "harvestDate": "2025-10-21"
+                    },
+                    "distribution": {
+                      "warehouseLocation": "Bremerhaven",
+                      "packagingType": "reusable",
+                      "storageConditions": "standard"
+                    }
+                  }
+                },
+                {
+                  "id": "GAR-ORD-BAT-SHIP-001-001-001-002",
+                  "orderId": "ORD-BAT-SHIP-001-001-001",
+                  "dpp": {
+                    "$schema": "https://schemas.dppmcp.com/textiles/garment.json",
+                    "dppMetadata": {
+                      "passportIdentifier": "https://id.gs1.org/01/09506000138126",
+                      "passportVersion": "1.0.0",
+                      "issuedDate": "2026-01-22",
+                      "garmentId": "GAR-ORD-BAT-SHIP-001-001-001-002",
+                      "orderId": "ORD-BAT-SHIP-001-001-001"
+                    },
+                    "productIdentification": {
+                      "productName": "Cotton T-Shirt",
+                      "productCategory": "textiles",
+                      "productType": "garment"
+                    },
+                    "manufacturer": {
+                      "name": "Green Threads Ltd",
+                      "country": "GB"
+                    },
+                    "rawMaterialsAndProcess": {
+                      "materials": [
+                        {
+                          "materialType": "recycled_polyester",
+                          "percentage": 80,
+                          "certified": false,
+                          "certification": "BCI"
+                        }
+                      ],
+                      "sourceCountry": "IT",
+                      "harvestDate": "2025-09-09"
+                    },
+                    "distribution": {
+                      "warehouseLocation": "Bremerhaven",
+                      "packagingType": "biodegradable",
+                      "storageConditions": "standard"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "id": "ORD-BAT-SHIP-001-001-002",
+              "batchId": "BAT-SHIP-001-001",
+              "brand": "FastFashion Co",
+              "quantity": 2,
+              "garments": [
+                {
+                  "id": "GAR-ORD-BAT-SHIP-001-001-002-001",
+                  "orderId": "ORD-BAT-SHIP-001-001-002",
+                  "dpp": {
+                    "$schema": "https://schemas.dppmcp.com/textiles/garment.json",
+                    "dppMetadata": {
+                      "passportIdentifier": "https://id.gs1.org/01/09506000137984",
+                      "passportVersion": "1.0.0",
+                      "issuedDate": "2026-01-22",
+                      "garmentId": "GAR-ORD-BAT-SHIP-001-001-002-001",
+                      "orderId": "ORD-BAT-SHIP-001-001-002"
+                    },
+                    "productIdentification": {
+                      "productName": "Hemp Trousers",
+                      "productCategory": "textiles",
+                      "productType": "garment"
+                    },
+                    "manufacturer": {
+                      "name": "Sustainable Wear BV",
+                      "country": "NL"
+                    },
+                    "rawMaterialsAndProcess": {
+                      "materials": [
+                        {
+                          "materialType": "wool",
+                          "percentage": 100,
+                          "certified": true,
+                          "certification": null
+                        }
+                      ],
+                      "sourceCountry": "IT",
+                      "harvestDate": "2025-10-23"
+                    },
+                    "distribution": {
+                      "warehouseLocation": "Bremerhaven",
+                      "packagingType": "biodegradable",
+                      "storageConditions": "standard"
+                    }
+                  }
+                },
+                {
+                  "id": "GAR-ORD-BAT-SHIP-001-001-002-002",
+                  "orderId": "ORD-BAT-SHIP-001-001-002",
+                  "dpp": {
+                    "$schema": "https://schemas.dppmcp.com/textiles/garment.json",
+                    "dppMetadata": {
+                      "passportIdentifier": "https://id.gs1.org/01/09506000139374",
+                      "passportVersion": "1.0.0",
+                      "issuedDate": "2026-01-22",
+                      "garmentId": "GAR-ORD-BAT-SHIP-001-001-002-002",
+                      "orderId": "ORD-BAT-SHIP-001-001-002"
+                    },
+                    "productIdentification": {
+                      "productName": "Cotton T-Shirt",
+                      "productCategory": "textiles",
+                      "productType": "garment"
+                    },
+                    "manufacturer": {
+                      "name": "Sustainable Wear BV",
+                      "country": "NL"
+                    },
+                    "rawMaterialsAndProcess": {
+                      "materials": [
+                        {
+                          "materialType": "recycled_polyester",
+                          "percentage": 80,
+                          "certified": true,
+                          "certification": "BCI"
+                        }
+                      ],
+                      "sourceCountry": "IN",
+                      "harvestDate": "2025-08-30"
+                    },
+                    "distribution": {
+                      "warehouseLocation": "Bremerhaven",
+                      "packagingType": "recyclable",
+                      "storageConditions": "standard"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "id": "ORD-BAT-SHIP-001-001-003",
+              "batchId": "BAT-SHIP-001-001",
+              "brand": "Street Style",
+              "quantity": 2,
+              "garments": [
+                {
+                  "id": "GAR-ORD-BAT-SHIP-001-001-003-001",
+                  "orderId": "ORD-BAT-SHIP-001-001-003",
+                  "dpp": {
+                    "$schema": "https://schemas.dppmcp.com/textiles/garment.json",
+                    "dppMetadata": {
+                      "passportIdentifier": "https://id.gs1.org/01/09506000138107",
+                      "passportVersion": "1.0.0",
+                      "issuedDate": "2026-01-22",
+                      "garmentId": "GAR-ORD-BAT-SHIP-001-001-003-001",
+                      "orderId": "ORD-BAT-SHIP-001-001-003"
+                    },
+                    "productIdentification": {
+                      "productName": "Organic Polo Shirt",
+                      "productCategory": "textiles",
+                      "productType": "garment"
+                    },
+                    "manufacturer": {
+                      "name": "Nordic Fashion AB",
+                      "country": "SE"
+                    },
+                    "rawMaterialsAndProcess": {
+                      "materials": [
+                        {
+                          "materialType": "recycled_polyester",
+                          "percentage": 100,
+                          "certified": true,
+                          "certification": "BCI"
+                        }
+                      ],
+                      "sourceCountry": "TR",
+                      "harvestDate": "2025-09-24"
+                    },
+                    "distribution": {
+                      "warehouseLocation": "Bremerhaven",
+                      "packagingType": "reusable",
+                      "storageConditions": "standard"
+                    }
+                  }
+                },
+                {
+                  "id": "GAR-ORD-BAT-SHIP-001-001-003-002",
+                  "orderId": "ORD-BAT-SHIP-001-001-003",
+                  "dpp": {
+                    "$schema": "https://schemas.dppmcp.com/textiles/garment.json",
+                    "dppMetadata": {
+                      "passportIdentifier": "https://id.gs1.org/01/09506000133616",
+                      "passportVersion": "1.0.0",
+                      "issuedDate": "2026-01-22",
+                      "garmentId": "GAR-ORD-BAT-SHIP-001-001-003-002",
+                      "orderId": "ORD-BAT-SHIP-001-001-003"
+                    },
+                    "productIdentification": {
+                      "productName": "Bamboo Socks",
+                      "productCategory": "textiles",
+                      "productType": "garment"
+                    },
+                    "manufacturer": {
+                      "name": "Sustainable Wear BV",
+                      "country": "NL"
+                    },
+                    "rawMaterialsAndProcess": {
+                      "materials": [
+                        {
+                          "materialType": "bamboo",
+                          "percentage": 70,
+                          "certified": false,
+                          "certification": "GOTS"
+                        }
+                      ],
+                      "sourceCountry": "CN",
+                      "harvestDate": "2025-09-09"
+                    },
+                    "distribution": {
+                      "warehouseLocation": "Bremerhaven",
+                      "packagingType": "biodegradable",
+                      "storageConditions": "standard"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "id": "ORD-BAT-SHIP-001-001-004",
+              "batchId": "BAT-SHIP-001-001",
+              "brand": "Premium Garments",
+              "quantity": 2,
+              "garments": [
+                {
+                  "id": "GAR-ORD-BAT-SHIP-001-001-004-001",
+                  "orderId": "ORD-BAT-SHIP-001-001-004",
+                  "dpp": {
+                    "$schema": "https://schemas.dppmcp.com/textiles/garment.json",
+                    "dppMetadata": {
+                      "passportIdentifier": "https://id.gs1.org/01/09506000132294",
+                      "passportVersion": "1.0.0",
+                      "issuedDate": "2026-01-22",
+                      "garmentId": "GAR-ORD-BAT-SHIP-001-001-004-001",
+                      "orderId": "ORD-BAT-SHIP-001-001-004"
+                    },
+                    "productIdentification": {
+                      "productName": "Silk Scarf",
+                      "productCategory": "textiles",
+                      "productType": "garment"
+                    },
+                    "manufacturer": {
+                      "name": "Nordic Fashion AB",
+                      "country": "SE"
+                    },
+                    "rawMaterialsAndProcess": {
+                      "materials": [
+                        {
+                          "materialType": "bamboo",
+                          "percentage": 95,
+                          "certified": true,
+                          "certification": "OEKO-TEX"
+                        }
+                      ],
+                      "sourceCountry": "CN",
+                      "harvestDate": "2025-09-21"
+                    },
+                    "distribution": {
+                      "warehouseLocation": "Bremerhaven",
+                      "packagingType": "biodegradable",
+                      "storageConditions": "standard"
+                    }
+                  }
+                },
+                {
+                  "id": "GAR-ORD-BAT-SHIP-001-001-004-002",
+                  "orderId": "ORD-BAT-SHIP-001-001-004",
+                  "dpp": {
+                    "$schema": "https://schemas.dppmcp.com/textiles/garment.json",
+                    "dppMetadata": {
+                      "passportIdentifier": "https://id.gs1.org/01/09506000135871",
+                      "passportVersion": "1.0.0",
+                      "issuedDate": "2026-01-22",
+                      "garmentId": "GAR-ORD-BAT-SHIP-001-001-004-002",
+                      "orderId": "ORD-BAT-SHIP-001-001-004"
+                    },
+                    "productIdentification": {
+                      "productName": "Denim Jacket",
+                      "productCategory": "textiles",
+                      "productType": "garment"
+                    },
+                    "manufacturer": {
+                      "name": "Mediterranean Apparel",
+                      "country": "ES"
+                    },
+                    "rawMaterialsAndProcess": {
+                      "materials": [
+                        {
+                          "materialType": "organic_cotton",
+                          "percentage": 95,
+                          "certified": true,
+                          "certification": "GOTS"
+                        }
+                      ],
+                      "sourceCountry": "IN",
+                      "harvestDate": "2025-09-19"
+                    },
+                    "distribution": {
+                      "warehouseLocation": "Bremerhaven",
+                      "packagingType": "recyclable",
+                      "storageConditions": "standard"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "id": "ORD-BAT-SHIP-001-001-005",
+              "batchId": "BAT-SHIP-001-001",
+              "brand": "Style Hub",
+              "quantity": 2,
+              "garments": [
+                {
+                  "id": "GAR-ORD-BAT-SHIP-001-001-005-001",
+                  "orderId": "ORD-BAT-SHIP-001-001-005",
+                  "dpp": {
+                    "$schema": "https://schemas.dppmcp.com/textiles/garment.json",
+                    "dppMetadata": {
+                      "passportIdentifier": "https://id.gs1.org/01/09506000135537",
+                      "passportVersion": "1.0.0",
+                      "issuedDate": "2026-01-22",
+                      "garmentId": "GAR-ORD-BAT-SHIP-001-001-005-001",
+                      "orderId": "ORD-BAT-SHIP-001-001-005"
+                    },
+                    "productIdentification": {
+                      "productName": "Silk Scarf",
+                      "productCategory": "textiles",
+                      "productType": "garment"
+                    },
+                    "manufacturer": {
+                      "name": "Green Threads Ltd",
+                      "country": "GB"
+                    },
+                    "rawMaterialsAndProcess": {
+                      "materials": [
+                        {
+                          "materialType": "silk",
+                          "percentage": 100,
+                          "certified": false,
+                          "certification": "BCI"
+                        }
+                      ],
+                      "sourceCountry": "CN",
+                      "harvestDate": "2025-09-02"
+                    },
+                    "distribution": {
+                      "warehouseLocation": "Bremerhaven",
+                      "packagingType": "biodegradable",
+                      "storageConditions": "standard"
+                    }
+                  }
+                },
+                {
+                  "id": "GAR-ORD-BAT-SHIP-001-001-005-002",
+                  "orderId": "ORD-BAT-SHIP-001-001-005",
+                  "dpp": {
+                    "$schema": "https://schemas.dppmcp.com/textiles/garment.json",
+                    "dppMetadata": {
+                      "passportIdentifier": "https://id.gs1.org/01/09506000133743",
+                      "passportVersion": "1.0.0",
+                      "issuedDate": "2026-01-22",
+                      "garmentId": "GAR-ORD-BAT-SHIP-001-001-005-002",
+                      "orderId": "ORD-BAT-SHIP-001-001-005"
+                    },
+                    "productIdentification": {
+                      "productName": "Cotton T-Shirt",
+                      "productCategory": "textiles",
+                      "productType": "garment"
+                    },
+                    "manufacturer": {
+                      "name": "Sustainable Wear BV",
+                      "country": "NL"
+                    },
+                    "rawMaterialsAndProcess": {
+                      "materials": [
+                        {
+                          "materialType": "bamboo",
+                          "percentage": 95,
+                          "certified": true,
+                          "certification": "BCI"
+                        }
+                      ],
+                      "sourceCountry": "IT",
+                      "harvestDate": "2025-08-15"
+                    },
+                    "distribution": {
+                      "warehouseLocation": "Bremerhaven",
+                      "packagingType": "biodegradable",
+                      "storageConditions": "standard"
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "batchId": "BAT-SHIP-001-002",
+          "shipmentId": "SHIP-001",
+          "timestamp": "2025-12-14T16:43:35.221921",
+          "orders": [
+            {
+              "id": "ORD-BAT-SHIP-001-002-001",
+              "batchId": "BAT-SHIP-001-002",
+              "brand": "Designer Dresses",
+              "quantity": 3,
+              "garments": [
+                {
+                  "id": "GAR-ORD-BAT-SHIP-001-002-001-001",
+                  "orderId": "ORD-BAT-SHIP-001-002-001",
+                  "dpp": {
+                    "$schema": "https://schemas.dppmcp.com/textiles/garment.json",
+                    "dppMetadata": {
+                      "passportIdentifier": "https://id.gs1.org/01/09506000139170",
+                      "passportVersion": "1.0.0",
+                      "issuedDate": "2026-01-22",
+                      "garmentId": "GAR-ORD-BAT-SHIP-001-002-001-001",
+                      "orderId": "ORD-BAT-SHIP-001-002-001"
+                    },
+                    "productIdentification": {
+                      "productName": "Silk Scarf",
+                      "productCategory": "textiles",
+                      "productType": "garment"
+                    },
+                    "manufacturer": {
+                      "name": "Nordic Fashion AB",
+                      "country": "SE"
+                    },
+                    "rawMaterialsAndProcess": {
+                      "materials": [
+                        {
+                          "materialType": "linen",
+                          "percentage": 95,
+                          "certified": false,
+                          "certification": "OEKO-TEX"
+                        }
+                      ],
+                      "sourceCountry": "PT",
+                      "harvestDate": "2025-09-18"
+                    },
+                    "distribution": {
+                      "warehouseLocation": "Bremerhaven",
+                      "packagingType": "biodegradable",
+                      "storageConditions": "standard"
+                    }
+                  }
+                },
+                {
+                  "id": "GAR-ORD-BAT-SHIP-001-002-001-002",
+                  "orderId": "ORD-BAT-SHIP-001-002-001",
+                  "dpp": {
+                    "$schema": "https://schemas.dppmcp.com/textiles/garment.json",
+                    "dppMetadata": {
+                      "passportIdentifier": "https://id.gs1.org/01/09506000135643",
+                      "passportVersion": "1.0.0",
+                      "issuedDate": "2026-01-22",
+                      "garmentId": "GAR-ORD-BAT-SHIP-001-002-001-002",
+                      "orderId": "ORD-BAT-SHIP-001-002-001"
+                    },
+                    "productIdentification": {
+                      "productName": "Denim Jacket",
+                      "productCategory": "textiles",
+                      "productType": "garment"
+                    },
+                    "manufacturer": {
+                      "name": "EcoTextile GmbH",
+                      "country": "DE"
+                    },
+                    "rawMaterialsAndProcess": {
+                      "materials": [
+                        {
+                          "materialType": "wool",
+                          "percentage": 70,
+                          "certified": true,
+                          "certification": "OEKO-TEX"
+                        }
+                      ],
+                      "sourceCountry": "CN",
+                      "harvestDate": "2025-09-04"
+                    },
+                    "distribution": {
+                      "warehouseLocation": "Bremerhaven",
+                      "packagingType": "biodegradable",
+                      "storageConditions": "standard"
+                    }
+                  }
+                },
+                {
+                  "id": "GAR-ORD-BAT-SHIP-001-002-001-003",
+                  "orderId": "ORD-BAT-SHIP-001-002-001",
+                  "dpp": {
+                    "$schema": "https://schemas.dppmcp.com/textiles/garment.json",
+                    "dppMetadata": {
+                      "passportIdentifier": "https://id.gs1.org/01/09506000139243",
+                      "passportVersion": "1.0.0",
+                      "issuedDate": "2026-01-22",
+                      "garmentId": "GAR-ORD-BAT-SHIP-001-002-001-003",
+                      "orderId": "ORD-BAT-SHIP-001-002-001"
+                    },
+                    "productIdentification": {
+                      "productName": "Denim Jacket",
+                      "productCategory": "textiles",
+                      "productType": "garment"
+                    },
+                    "manufacturer": {
+                      "name": "EcoTextile GmbH",
+                      "country": "DE"
+                    },
+                    "rawMaterialsAndProcess": {
+                      "materials": [
+                        {
+                          "materialType": "wool",
+                          "percentage": 95,
+                          "certified": false,
+                          "certification": "BCI"
+                        }
+                      ],
+                      "sourceCountry": "BD",
+                      "harvestDate": "2025-09-23"
+                    },
+                    "distribution": {
+                      "warehouseLocation": "Bremerhaven",
+                      "packagingType": "biodegradable",
+                      "storageConditions": "standard"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "id": "ORD-BAT-SHIP-001-002-002",
+              "batchId": "BAT-SHIP-001-002",
+              "brand": "Street Style",
+              "quantity": 1,
+              "garments": [
+                {
+                  "id": "GAR-ORD-BAT-SHIP-001-002-002-001",
+                  "orderId": "ORD-BAT-SHIP-001-002-002",
+                  "dpp": {
+                    "$schema": "https://schemas.dppmcp.com/textiles/garment.json",
+                    "dppMetadata": {
+                      "passportIdentifier": "https://id.gs1.org/01/09506000138817",
+                      "passportVersion": "1.0.0",
+                      "issuedDate": "2026-01-22",
+                      "garmentId": "GAR-ORD-BAT-SHIP-001-002-002-001",
+                      "orderId": "ORD-BAT-SHIP-001-002-002"
+                    },
+                    "productIdentification": {
+                      "productName": "Linen Blouse",
+                      "productCategory": "textiles",
+                      "productType": "garment"
+                    },
+                    "manufacturer": {
+                      "name": "Green Threads Ltd",
+                      "country": "GB"
+                    },
+                    "rawMaterialsAndProcess": {
+                      "materials": [
+                        {
+                          "materialType": "silk",
+                          "percentage": 100,
+                          "certified": true,
+                          "certification": "BCI"
+                        }
+                      ],
+                      "sourceCountry": "IT",
+                      "harvestDate": "2025-08-05"
+                    },
+                    "distribution": {
+                      "warehouseLocation": "Bremerhaven",
+                      "packagingType": "recyclable",
+                      "storageConditions": "standard"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "id": "ORD-BAT-SHIP-001-002-003",
+              "batchId": "BAT-SHIP-001-002",
+              "brand": "Quality Clothes",
+              "quantity": 1,
+              "garments": [
+                {
+                  "id": "GAR-ORD-BAT-SHIP-001-002-003-001",
+                  "orderId": "ORD-BAT-SHIP-001-002-003",
+                  "dpp": {
+                    "$schema": "https://schemas.dppmcp.com/textiles/garment.json",
+                    "dppMetadata": {
+                      "passportIdentifier": "https://id.gs1.org/01/09506000131034",
+                      "passportVersion": "1.0.0",
+                      "issuedDate": "2026-01-22",
+                      "garmentId": "GAR-ORD-BAT-SHIP-001-002-003-001",
+                      "orderId": "ORD-BAT-SHIP-001-002-003"
+                    },
+                    "productIdentification": {
+                      "productName": "Silk Scarf",
+                      "productCategory": "textiles",
+                      "productType": "garment"
+                    },
+                    "manufacturer": {
+                      "name": "Sustainable Wear BV",
+                      "country": "NL"
+                    },
+                    "rawMaterialsAndProcess": {
+                      "materials": [
+                        {
+                          "materialType": "bamboo",
+                          "percentage": 70,
+                          "certified": true,
+                          "certification": "BCI"
+                        }
+                      ],
+                      "sourceCountry": "BD",
+                      "harvestDate": "2025-08-20"
+                    },
+                    "distribution": {
+                      "warehouseLocation": "Bremerhaven",
+                      "packagingType": "recyclable",
+                      "storageConditions": "standard"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "id": "ORD-BAT-SHIP-001-002-004",
+              "batchId": "BAT-SHIP-001-002",
+              "brand": "Luxury Threads",
+              "quantity": 1,
+              "garments": [
+                {
+                  "id": "GAR-ORD-BAT-SHIP-001-002-004-001",
+                  "orderId": "ORD-BAT-SHIP-001-002-004",
+                  "dpp": {
+                    "$schema": "https://schemas.dppmcp.com/textiles/garment.json",
+                    "dppMetadata": {
+                      "passportIdentifier": "https://id.gs1.org/01/09506000133215",
+                      "passportVersion": "1.0.0",
+                      "issuedDate": "2026-01-22",
+                      "garmentId": "GAR-ORD-BAT-SHIP-001-002-004-001",
+                      "orderId": "ORD-BAT-SHIP-001-002-004"
+                    },
+                    "productIdentification": {
+                      "productName": "Organic Polo Shirt",
+                      "productCategory": "textiles",
+                      "productType": "garment"
+                    },
+                    "manufacturer": {
+                      "name": "Sustainable Wear BV",
+                      "country": "NL"
+                    },
+                    "rawMaterialsAndProcess": {
+                      "materials": [
+                        {
+                          "materialType": "linen",
+                          "percentage": 100,
+                          "certified": false,
+                          "certification": "GOTS"
+                        }
+                      ],
+                      "sourceCountry": "PT",
+                      "harvestDate": "2025-08-13"
+                    },
+                    "distribution": {
+                      "warehouseLocation": "Bremerhaven",
+                      "packagingType": "reusable",
+                      "storageConditions": "standard"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "id": "ORD-BAT-SHIP-001-002-005",
+              "batchId": "BAT-SHIP-001-002",
+              "brand": "EcoWear Ltd",
+              "quantity": 1,
+              "garments": [
+                {
+                  "id": "GAR-ORD-BAT-SHIP-001-002-005-001",
+                  "orderId": "ORD-BAT-SHIP-001-002-005",
+                  "dpp": {
+                    "$schema": "https://schemas.dppmcp.com/textiles/garment.json",
+                    "dppMetadata": {
+                      "passportIdentifier": "https://id.gs1.org/01/09506000135827",
+                      "passportVersion": "1.0.0",
+                      "issuedDate": "2026-01-22",
+                      "garmentId": "GAR-ORD-BAT-SHIP-001-002-005-001",
+                      "orderId": "ORD-BAT-SHIP-001-002-005"
+                    },
+                    "productIdentification": {
+                      "productName": "Silk Scarf",
+                      "productCategory": "textiles",
+                      "productType": "garment"
+                    },
+                    "manufacturer": {
+                      "name": "Sustainable Wear BV",
+                      "country": "NL"
+                    },
+                    "rawMaterialsAndProcess": {
+                      "materials": [
+                        {
+                          "materialType": "bamboo",
+                          "percentage": 100,
+                          "certified": true,
+                          "certification": "BCI"
+                        }
+                      ],
+                      "sourceCountry": "BD",
+                      "harvestDate": "2025-10-21"
+                    },
+                    "distribution": {
+                      "warehouseLocation": "Bremerhaven",
+                      "packagingType": "recyclable",
+                      "storageConditions": "standard"
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "batchId": "BAT-SHIP-001-003",
+          "shipmentId": "SHIP-001",
+          "timestamp": "2025-12-14T18:43:35.221921",
+          "orders": [
+            {
+              "id": "ORD-BAT-SHIP-001-003-001",
+              "batchId": "BAT-SHIP-001-003",
+              "brand": "Fashion Forward",
+              "quantity": 3,
+              "garments": [
+                {
+                  "id": "GAR-ORD-BAT-SHIP-001-003-001-001",
+                  "orderId": "ORD-BAT-SHIP-001-003-001",
+                  "dpp": {
+                    "$schema": "https://schemas.dppmcp.com/textiles/garment.json",
+                    "dppMetadata": {
+                      "passportIdentifier": "https://id.gs1.org/01/09506000133410",
+                      "passportVersion": "1.0.0",
+                      "issuedDate": "2026-01-22",
+                      "garmentId": "GAR-ORD-BAT-SHIP-001-003-001-001",
+                      "orderId": "ORD-BAT-SHIP-001-003-001"
+                    },
+                    "productIdentification": {
+                      "productName": "Hemp Trousers",
+                      "productCategory": "textiles",
+                      "productType": "garment"
+                    },
+                    "manufacturer": {
+                      "name": "EcoTextile GmbH",
+                      "country": "DE"
+                    },
+                    "rawMaterialsAndProcess": {
+                      "materials": [
+                        {
+                          "materialType": "bamboo",
+                          "percentage": 70,
+                          "certified": false,
+                          "certification": "GOTS"
+                        }
+                      ],
+                      "sourceCountry": "IT",
+                      "harvestDate": "2025-08-18"
+                    },
+                    "distribution": {
+                      "warehouseLocation": "Bremerhaven",
+                      "packagingType": "reusable",
+                      "storageConditions": "standard"
+                    }
+                  }
+                },
+                {
+                  "id": "GAR-ORD-BAT-SHIP-001-003-001-002",
+                  "orderId": "ORD-BAT-SHIP-001-003-001",
+                  "dpp": {
+                    "$schema": "https://schemas.dppmcp.com/textiles/garment.json",
+                    "dppMetadata": {
+                      "passportIdentifier": "https://id.gs1.org/01/09506000132514",
+                      "passportVersion": "1.0.0",
+                      "issuedDate": "2026-01-22",
+                      "garmentId": "GAR-ORD-BAT-SHIP-001-003-001-002",
+                      "orderId": "ORD-BAT-SHIP-001-003-001"
+                    },
+                    "productIdentification": {
+                      "productName": "Wool Sweater",
+                      "productCategory": "textiles",
+                      "productType": "garment"
+                    },
+                    "manufacturer": {
+                      "name": "Nordic Fashion AB",
+                      "country": "SE"
+                    },
+                    "rawMaterialsAndProcess": {
+                      "materials": [
+                        {
+                          "materialType": "hemp",
+                          "percentage": 70,
+                          "certified": false,
+                          "certification": "GOTS"
+                        }
+                      ],
+                      "sourceCountry": "TR",
+                      "harvestDate": "2025-08-31"
+                    },
+                    "distribution": {
+                      "warehouseLocation": "Bremerhaven",
+                      "packagingType": "reusable",
+                      "storageConditions": "standard"
+                    }
+                  }
+                },
+                {
+                  "id": "GAR-ORD-BAT-SHIP-001-003-001-003",
+                  "orderId": "ORD-BAT-SHIP-001-003-001",
+                  "dpp": {
+                    "$schema": "https://schemas.dppmcp.com/textiles/garment.json",
+                    "dppMetadata": {
+                      "passportIdentifier": "https://id.gs1.org/01/09506000131868",
+                      "passportVersion": "1.0.0",
+                      "issuedDate": "2026-01-22",
+                      "garmentId": "GAR-ORD-BAT-SHIP-001-003-001-003",
+                      "orderId": "ORD-BAT-SHIP-001-003-001"
+                    },
+                    "productIdentification": {
+                      "productName": "Linen Blouse",
+                      "productCategory": "textiles",
+                      "productType": "garment"
+                    },
+                    "manufacturer": {
+                      "name": "Nordic Fashion AB",
+                      "country": "SE"
+                    },
+                    "rawMaterialsAndProcess": {
+                      "materials": [
+                        {
+                          "materialType": "cotton",
+                          "percentage": 80,
+                          "certified": true,
+                          "certification": null
+                        }
+                      ],
+                      "sourceCountry": "TR",
+                      "harvestDate": "2025-09-14"
+                    },
+                    "distribution": {
+                      "warehouseLocation": "Bremerhaven",
+                      "packagingType": "reusable",
+                      "storageConditions": "standard"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "id": "ORD-BAT-SHIP-001-003-002",
+              "batchId": "BAT-SHIP-001-003",
+              "brand": "Quality Clothes",
+              "quantity": 1,
+              "garments": [
+                {
+                  "id": "GAR-ORD-BAT-SHIP-001-003-002-001",
+                  "orderId": "ORD-BAT-SHIP-001-003-002",
+                  "dpp": {
+                    "$schema": "https://schemas.dppmcp.com/textiles/garment.json",
+                    "dppMetadata": {
+                      "passportIdentifier": "https://id.gs1.org/01/09506000132852",
+                      "passportVersion": "1.0.0",
+                      "issuedDate": "2026-01-22",
+                      "garmentId": "GAR-ORD-BAT-SHIP-001-003-002-001",
+                      "orderId": "ORD-BAT-SHIP-001-003-002"
+                    },
+                    "productIdentification": {
+                      "productName": "Silk Scarf",
+                      "productCategory": "textiles",
+                      "productType": "garment"
+                    },
+                    "manufacturer": {
+                      "name": "Sustainable Wear BV",
+                      "country": "NL"
+                    },
+                    "rawMaterialsAndProcess": {
+                      "materials": [
+                        {
+                          "materialType": "bamboo",
+                          "percentage": 80,
+                          "certified": true,
+                          "certification": "OEKO-TEX"
+                        }
+                      ],
+                      "sourceCountry": "CN",
+                      "harvestDate": "2025-08-05"
+                    },
+                    "distribution": {
+                      "warehouseLocation": "Bremerhaven",
+                      "packagingType": "reusable",
+                      "storageConditions": "standard"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "id": "ORD-BAT-SHIP-001-003-003",
+              "batchId": "BAT-SHIP-001-003",
+              "brand": "Urban Style",
+              "quantity": 1,
+              "garments": [
+                {
+                  "id": "GAR-ORD-BAT-SHIP-001-003-003-001",
+                  "orderId": "ORD-BAT-SHIP-001-003-003",
+                  "dpp": {
+                    "$schema": "https://schemas.dppmcp.com/textiles/garment.json",
+                    "dppMetadata": {
+                      "passportIdentifier": "https://id.gs1.org/01/09506000137583",
+                      "passportVersion": "1.0.0",
+                      "issuedDate": "2026-01-22",
+                      "garmentId": "GAR-ORD-BAT-SHIP-001-003-003-001",
+                      "orderId": "ORD-BAT-SHIP-001-003-003"
+                    },
+                    "productIdentification": {
+                      "productName": "Wool Sweater",
+                      "productCategory": "textiles",
+                      "productType": "garment"
+                    },
+                    "manufacturer": {
+                      "name": "Green Threads Ltd",
+                      "country": "GB"
+                    },
+                    "rawMaterialsAndProcess": {
+                      "materials": [
+                        {
+                          "materialType": "recycled_polyester",
+                          "percentage": 80,
+                          "certified": true,
+                          "certification": null
+                        }
+                      ],
+                      "sourceCountry": "IN",
+                      "harvestDate": "2025-07-26"
+                    },
+                    "distribution": {
+                      "warehouseLocation": "Bremerhaven",
+                      "packagingType": "reusable",
+                      "storageConditions": "standard"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "id": "ORD-BAT-SHIP-001-003-004",
+              "batchId": "BAT-SHIP-001-003",
+              "brand": "Luxury Threads",
+              "quantity": 2,
+              "garments": [
+                {
+                  "id": "GAR-ORD-BAT-SHIP-001-003-004-001",
+                  "orderId": "ORD-BAT-SHIP-001-003-004",
+                  "dpp": {
+                    "$schema": "https://schemas.dppmcp.com/textiles/garment.json",
+                    "dppMetadata": {
+                      "passportIdentifier": "https://id.gs1.org/01/09506000139428",
+                      "passportVersion": "1.0.0",
+                      "issuedDate": "2026-01-22",
+                      "garmentId": "GAR-ORD-BAT-SHIP-001-003-004-001",
+                      "orderId": "ORD-BAT-SHIP-001-003-004"
+                    },
+                    "productIdentification": {
+                      "productName": "Denim Jacket",
+                      "productCategory": "textiles",
+                      "productType": "garment"
+                    },
+                    "manufacturer": {
+                      "name": "EcoTextile GmbH",
+                      "country": "DE"
+                    },
+                    "rawMaterialsAndProcess": {
+                      "materials": [
+                        {
+                          "materialType": "wool",
+                          "percentage": 70,
+                          "certified": false,
+                          "certification": "OEKO-TEX"
+                        }
+                      ],
+                      "sourceCountry": "PT",
+                      "harvestDate": "2025-09-19"
+                    },
+                    "distribution": {
+                      "warehouseLocation": "Bremerhaven",
+                      "packagingType": "recyclable",
+                      "storageConditions": "standard"
+                    }
+                  }
+                },
+                {
+                  "id": "GAR-ORD-BAT-SHIP-001-003-004-002",
+                  "orderId": "ORD-BAT-SHIP-001-003-004",
+                  "dpp": {
+                    "$schema": "https://schemas.dppmcp.com/textiles/garment.json",
+                    "dppMetadata": {
+                      "passportIdentifier": "https://id.gs1.org/01/09506000138738",
+                      "passportVersion": "1.0.0",
+                      "issuedDate": "2026-01-22",
+                      "garmentId": "GAR-ORD-BAT-SHIP-001-003-004-002",
+                      "orderId": "ORD-BAT-SHIP-001-003-004"
+                    },
+                    "productIdentification": {
+                      "productName": "Wool Sweater",
+                      "productCategory": "textiles",
+                      "productType": "garment"
+                    },
+                    "manufacturer": {
+                      "name": "Mediterranean Apparel",
+                      "country": "ES"
+                    },
+                    "rawMaterialsAndProcess": {
+                      "materials": [
+                        {
+                          "materialType": "linen",
+                          "percentage": 80,
+                          "certified": false,
+                          "certification": "OEKO-TEX"
+                        }
+                      ],
+                      "sourceCountry": "IT",
+                      "harvestDate": "2025-08-15"
+                    },
+                    "distribution": {
+                      "warehouseLocation": "Bremerhaven",
+                      "packagingType": "biodegradable",
+                      "storageConditions": "standard"
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "routeSolver": {
+        "algorithm": "dijkstra",
+        "solverVersion": "2.1.0",
+        "computedAt": "2025-01-22T09:15:00.000Z",
+        "optimizationCriteria": [
+          "cost",
+          "time",
+          "reliability"
+        ]
+      },
+      "selectedRoute": {
+        "routeId": "ROUTE-001-A",
+        "chosen": true,
+        "chosenBy": "dijkstra_solver",
+        "path": [
+          "Valencia",
+          "Barcelona",
+          "Marseille",
+          "Lyon",
+          "Strasbourg",
+          "Frankfurt",
+          "Bremerhaven"
+        ],
+        "totalDistanceKm": 2180,
+        "estimatedTimeHours": 72,
+        "estimatedCostEur": 4500,
+        "reliabilityScore": 0.92,
+        "dijkstraScore": 0.87,
+        "transportModes": [
+          "truck",
+          "rail",
+          "truck"
+        ],
+        "mainPorts": [
+          "Valencia Port",
+          "Bremerhaven Port"
+        ],
+        "riskFactors": {
+          "weatherRisk": "low",
+          "congestionRisk": "medium",
+          "borderDelayRisk": "low"
+        }
+      },
+      "alternativeRoutes": [
+        {
+          "routeId": "ROUTE-001-B",
+          "chosen": false,
+          "path": [
+            "Valencia",
+            "Zaragoza",
+            "Bilbao",
+            "Bordeaux",
+            "Paris",
+            "Brussels",
+            "Rotterdam",
+            "Bremerhaven"
+          ],
+          "totalDistanceKm": 2450,
+          "estimatedTimeHours": 84,
+          "estimatedCostEur": 5200,
+          "reliabilityScore": 0.88,
+          "dijkstraScore": 0.72,
+          "transportModes": [
+            "truck",
+            "rail",
+            "ferry"
+          ],
+          "mainPorts": [
+            "Valencia Port",
+            "Rotterdam Port",
+            "Bremerhaven Port"
+          ],
+          "riskFactors": {
+            "weatherRisk": "medium",
+            "congestionRisk": "high",
+            "borderDelayRisk": "low"
+          },
+          "rejectionReason": "Higher cost and longer transit time"
+        },
+        {
+          "routeId": "ROUTE-001-C",
+          "chosen": false,
+          "path": [
+            "Valencia",
+            "Gibraltar",
+            "Lisbon",
+            "Le Havre",
+            "Amsterdam",
+            "Bremerhaven"
+          ],
+          "totalDistanceKm": 3100,
+          "estimatedTimeHours": 120,
+          "estimatedCostEur": 3800,
+          "reliabilityScore": 0.78,
+          "dijkstraScore": 0.65,
+          "transportModes": [
+            "sea",
+            "rail"
+          ],
+          "mainPorts": [
+            "Valencia Port",
+            "Gibraltar Port",
+            "Le Havre Port",
+            "Bremerhaven Port"
+          ],
+          "riskFactors": {
+            "weatherRisk": "high",
+            "congestionRisk": "low",
+            "borderDelayRisk": "medium"
+          },
+          "rejectionReason": "Atlantic weather risk and longer transit time"
+        },
+        {
+          "routeId": "ROUTE-001-D",
+          "chosen": false,
+          "path": [
+            "Valencia",
+            "Genoa",
+            "Milan",
+            "Zurich",
+            "Stuttgart",
+            "Bremerhaven"
+          ],
+          "totalDistanceKm": 2050,
+          "estimatedTimeHours": 68,
+          "estimatedCostEur": 5800,
+          "reliabilityScore": 0.95,
+          "dijkstraScore": 0.79,
+          "transportModes": [
+            "sea",
+            "rail",
+            "truck"
+          ],
+          "mainPorts": [
+            "Valencia Port",
+            "Genoa Port",
+            "Bremerhaven Port"
+          ],
+          "riskFactors": {
+            "weatherRisk": "medium",
+            "congestionRisk": "medium",
+            "borderDelayRisk": "high"
+          },
+          "rejectionReason": "Alpine crossing delays and higher cost"
+        }
+      ]
+    }
+  ]
+}

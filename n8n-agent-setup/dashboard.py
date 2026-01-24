@@ -4,9 +4,11 @@ import requests
 import json
 import plotly.express as px
 
+import time
+
 # --- CONFIGURATION ---
 # 1. Cloud n8n Webhook
-N8N_WEBHOOK_URL = "https://lisaselma.app.n8n.cloud/webhook-test/process-batch"
+N8N_WEBHOOK_URL = "https://lisaselma.app.n8n.cloud/webhook-test/dd3f2c82-8bbd-4a2b-87c3-81f1b58bde06"
 
 # 2. Google Sheet CSV Link
 GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSOjM-l1OUaciaFdaFfuLOazhfPiiWWwgjAGB_kToeFq-fY--LyljT3m_uhDCKZicGfyQSsMXDEpVHd/pub?gid=0&single=true&output=csv"
@@ -106,11 +108,17 @@ with tab2:
             st.rerun()
 
     try:
-        # Load Data
-        df = pd.read_csv(GOOGLE_SHEET_CSV_URL)
+        # --- CACHE BUSTING FIX ---
+        # We append a unique timestamp (&t=...) to the URL to force Google 
+        # to give us the freshest data instead of a cached version.
+        cache_buster_url = f"{GOOGLE_SHEET_CSV_URL}&t={int(time.time())}"
         
-        # Clean Headers (remove accidental spaces in Google Sheets)
+        # Load Data
+        df = pd.read_csv(cache_buster_url)
+        
+        # Clean Headers & Handle Empty Data
         df.columns = df.columns.str.strip()
+        df.fillna("", inplace=True) # Fixes "NaN" errors in the table
 
         # --- SIDEBAR FILTERS (Only visible on this tab effectively) ---
         with col_filter:
@@ -183,15 +191,19 @@ with tab2:
         # Styling Logic
         def style_status(val):
             val_str = str(val).upper()
-            if 'FLAGGED' in val_str:
+            # Check for various flag keywords found in your 'decision' column
+            if any(x in val_str for x in ['FLAGGED', 'BLOCK', 'DELAY']):
                 return 'background-color: #ffebee; color: #c62828; font-weight: bold' # Light Red
-            elif 'GOOD' in val_str:
+            elif 'GOOD' in val_str or 'PROCEED' in val_str:
                 return 'background-color: #e8f5e9; color: #2e7d32; font-weight: bold' # Light Green
             return ''
 
         # Display Dataframe
+        # We now apply the style to BOTH 'decision' and 'Status' columns so you don't miss anything
+        cols_to_style = [c for c in ['decision', 'Status'] if c in df.columns]
+        
         st.dataframe(
-            df.style.map(style_status, subset=['Status'] if 'Status' in df.columns else None),
+            df.style.map(style_status, subset=cols_to_style),
             use_container_width=True,
             height=400
         )
