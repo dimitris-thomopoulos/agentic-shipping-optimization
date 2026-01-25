@@ -1,0 +1,177 @@
+{
+  "shipments": [
+    {
+      "shipmentId": "SHIP-001",
+      "origin": "Valencia",
+      "destination": "Bremerhaven",
+      "priority": "Medium",
+      "batches": [
+        {
+          "batchId": "BAT-SHIP-001-001",
+          "shipmentId": "SHIP-001",
+          "timestamp": "2025-12-14T14:43:35.221921",
+          "orders": [
+            {
+              "id": "ORD-BAT-SHIP-001-001-001",
+              "batchId": "BAT-SHIP-001-001",
+              "brand": "Casual Comfort",
+              "quantity": 2,
+              "garments": [
+                {
+                  "id": "GAR-001",
+                  "orderId": "ORD-BAT-SHIP-001-001-001",
+                  "dpp": {
+                    "$schema": "https://schemas.dppmcp.com/textiles/garment.json",
+                    "dppMetadata": {
+                      "passportIdentifier": "https://id.gs1.org/01/09506000134039",
+                      "passportVersion": "1.0.0",
+                      "issuedDate": "2026-01-22",
+                      "garmentId": "GAR-001",
+                      "orderId": "ORD-BAT-SHIP-001-001-001"
+                    },
+                    "productIdentification": {
+                      "productName": "Cotton T-Shirt",
+                      "productCategory": "textiles",
+                      "productType": "garment"
+                    },
+                    "manufacturer": {
+                      "name": "Green Threads Ltd",
+                      "country": "GB"
+                    },
+                    "rawMaterialsAndProcess": {
+                      "materials": [
+                        {
+                          "materialType": "organic_cotton",
+                          "percentage": 100,
+                          "certified": true,
+                          "certification": "GOTS"
+                        }
+                      ],
+                      "sourceCountry": "IT",
+                      "harvestDate": "2025-09-09"
+                    },
+                    "distribution": {
+                      "warehouseLocation": "Bremerhaven",
+                      "packagingType": "biodegradable",
+                      "storageConditions": "standard"
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "batchId": "BAT-SHIP-001-002",
+          "shipmentId": "SHIP-001",
+          "timestamp": "2025-12-14T16:43:35.221921",
+          "orders": [
+            {
+              "id": "ORD-BAT-SHIP-001-002-001",
+              "batchId": "BAT-SHIP-001-002",
+              "brand": "EcoWear Ltd",
+              "quantity": 1,
+              "garments": [
+                {
+                  "id": "GAR-002",
+                  "orderId": "ORD-BAT-SHIP-001-002-001",
+                  "dpp": {
+                    "$schema": "https://schemas.dppmcp.com/textiles/garment.json",
+                    "dppMetadata": {
+                      "passportIdentifier": "https://id.gs1.org/01/09506000135827",
+                      "passportVersion": "1.0.0",
+                      "issuedDate": "2026-01-22",
+                      "garmentId": "GAR-002",
+                      "orderId": "ORD-BAT-SHIP-001-002-001"
+                    },
+                    "productIdentification": {
+                      "productName": "Wool Sweater",
+                      "productCategory": "textiles",
+                      "productType": "garment"
+                    },
+                    "manufacturer": {
+                      "name": "Sustainable Wear BV",
+                      "country": "NL"
+                    },
+                    "rawMaterialsAndProcess": {
+                      "materials": [
+                        {
+                          "materialType": "wool",
+                          "percentage": 100,
+                          "certified": true,
+                          "certification": "OEKO-TEX"
+                        }
+                      ],
+                      "sourceCountry": "DE",
+                      "harvestDate": "2025-08-20"
+                    },
+                    "distribution": {
+                      "warehouseLocation": "Bremerhaven",
+                      "packagingType": "recyclable",
+                      "storageConditions": "standard"
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "batchId": "BAT-SHIP-001-003",
+          "shipmentId": "SHIP-001",
+          "timestamp": "2025-12-14T18:43:35.221921",
+          "orders": [
+            {
+              "id": "ORD-BAT-SHIP-001-003-001",
+              "batchId": "BAT-SHIP-001-003",
+              "brand": "Nordic Fashion",
+              "quantity": 1,
+              "garments": [
+                {
+                  "id": "GAR-003",
+                  "orderId": "ORD-BAT-SHIP-001-003-001",
+                  "dpp": {
+                    "$schema": "https://schemas.dppmcp.com/textiles/garment.json",
+                    "dppMetadata": {
+                      "passportIdentifier": "https://id.gs1.org/01/09506000132852",
+                      "passportVersion": "1.0.0",
+                      "issuedDate": "2026-01-22",
+                      "garmentId": "GAR-003",
+                      "orderId": "ORD-BAT-SHIP-001-003-001"
+                    },
+                    "productIdentification": {
+                      "productName": "Linen Blouse",
+                      "productCategory": "textiles",
+                      "productType": "garment"
+                    },
+                    "manufacturer": {
+                      "name": "Nordic Fashion AB",
+                      "country": "SE"
+                    },
+                    "rawMaterialsAndProcess": {
+                      "materials": [
+                        {
+                          "materialType": "linen",
+                          "percentage": 100,
+                          "certified": true,
+                          "certification": "OEKO-TEX"
+                        }
+                      ],
+                      "sourceCountry": "PT",
+                      "harvestDate": "2025-08-05"
+                    },
+                    "distribution": {
+                      "warehouseLocation": "Bremerhaven",
+                      "packagingType": "reusable",
+                      "storageConditions": "standard"
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

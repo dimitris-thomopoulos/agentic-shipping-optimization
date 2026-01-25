@@ -1,0 +1,198 @@
+{
+  "shipments": [
+    {
+      "shipmentId": "SHIP-001",
+      "origin": "Valencia",
+      "destination": "Bremerhaven",
+      "priority": "Medium",
+      "batches": [
+        {
+          "batchId": "BAT-SHIP-001-001",
+          "shipmentId": "SHIP-001",
+          "timestamp": "2025-12-14T14:43:35.221921",
+          "orders": [
+            {
+              "id": "ORD-BAT-SHIP-001-001-001",
+              "batchId": "BAT-SHIP-001-001",
+              "brand": "Casual Comfort",
+              "quantity": 1,
+              "garments": [
+                {
+                  "id": "GAR-101",
+                  "orderId": "ORD-BAT-SHIP-001-001-001",
+                  "dpp": {
+                    "$schema": "https://schemas.dppmcp.com/textiles/garment.json",
+                    "dppMetadata": {
+                      "passportIdentifier": "https://id.gs1.org/01/09506000134039",
+                      "passportVersion": "1.0.0",
+                      "issuedDate": "2026-01-22",
+                      "garmentId": "GAR-101",
+                      "orderId": "ORD-BAT-SHIP-001-001-001"
+                    },
+                    "productIdentification": {
+                      "productName": "Cotton T-Shirt",
+                      "productCategory": "textiles",
+                      "productType": "garment"
+                    },
+                    "manufacturer": {
+                      "name": "Green Threads Ltd",
+                      "country": "GB"
+                    },
+                    "rawMaterialsAndProcess": {
+                      "materials": [
+                        {
+                          "materialType": "cotton",
+                          "percentage": 85,
+                          "certified": false,
+                          "certification": "GOTS"
+                        },
+                        {
+                          "materialType": "azo_dyes",
+                          "percentage": 5,
+                          "certified": false,
+                          "certification": null
+                        }
+                      ],
+                      "chemicalTreatments": [
+                        "azo_dyes",
+                        "formaldehyde_resin"
+                      ],
+                      "sourceCountry": "CN",
+                      "harvestDate": "2025-09-09"
+                    },
+                    "distribution": {
+                      "warehouseLocation": "Bremerhaven",
+                      "packagingType": "biodegradable",
+                      "storageConditions": "standard"
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "batchId": "BAT-SHIP-001-002",
+          "shipmentId": "SHIP-001",
+          "timestamp": "2025-12-14T16:43:35.221921",
+          "orders": [
+            {
+              "id": "ORD-BAT-SHIP-001-002-001",
+              "batchId": "BAT-SHIP-001-002",
+              "brand": "EcoWear Ltd",
+              "quantity": 1,
+              "garments": [
+                {
+                  "id": "GAR-002",
+                  "orderId": "ORD-BAT-SHIP-001-002-001",
+                  "dpp": {
+                    "$schema": "https://schemas.dppmcp.com/textiles/garment.json",
+                    "dppMetadata": {
+                      "passportIdentifier": "https://id.gs1.org/01/09506000135827",
+                      "passportVersion": "1.0.0",
+                      "issuedDate": "2026-01-22",
+                      "garmentId": "GAR-002",
+                      "orderId": "ORD-BAT-SHIP-001-002-001"
+                    },
+                    "productIdentification": {
+                      "productName": "Wool Sweater",
+                      "productCategory": "textiles",
+                      "productType": "garment"
+                    },
+                    "manufacturer": {
+                      "name": "Sustainable Wear BV",
+                      "country": "NL"
+                    },
+                    "rawMaterialsAndProcess": {
+                      "materials": [
+                        {
+                          "materialType": "wool",
+                          "percentage": 100,
+                          "certified": true,
+                          "certification": "OEKO-TEX"
+                        }
+                      ],
+                      "sourceCountry": "DE",
+                      "harvestDate": "2025-08-20"
+                    },
+                    "distribution": {
+                      "warehouseLocation": "Bremerhaven",
+                      "packagingType": "recyclable",
+                      "storageConditions": "standard"
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "batchId": "BAT-SHIP-001-003",
+          "shipmentId": "SHIP-001",
+          "timestamp": "2025-12-14T18:43:35.221921",
+          "orders": [
+            {
+              "id": "ORD-BAT-SHIP-001-003-001",
+              "batchId": "BAT-SHIP-001-003",
+              "brand": "Urban Style",
+              "quantity": 1,
+              "garments": [
+                {
+                  "id": "GAR-103",
+                  "orderId": "ORD-BAT-SHIP-001-003-001",
+                  "dpp": {
+                    "$schema": "https://schemas.dppmcp.com/textiles/garment.json",
+                    "dppMetadata": {
+                      "passportIdentifier": "https://id.gs1.org/01/09506000132852",
+                      "passportVersion": "1.0.0",
+                      "issuedDate": "2026-01-22",
+                      "garmentId": "GAR-103",
+                      "orderId": "ORD-BAT-SHIP-001-003-001"
+                    },
+                    "productIdentification": {
+                      "productName": "Waterproof Jacket",
+                      "productCategory": "textiles",
+                      "productType": "garment"
+                    },
+                    "manufacturer": {
+                      "name": "Urban Style GmbH",
+                      "country": "DE"
+                    },
+                    "rawMaterialsAndProcess": {
+                      "materials": [
+                        {
+                          "materialType": "polyester",
+                          "percentage": 70,
+                          "certified": false,
+                          "certification": null
+                        },
+                        {
+                          "materialType": "polyvinyl_chloride",
+                          "percentage": 20,
+                          "certified": false,
+                          "certification": null
+                        }
+                      ],
+                      "chemicalTreatments": [
+                        "PFAS_water_repellent",
+                        "phthalates",
+                        "antimony_trioxide"
+                      ],
+                      "sourceCountry": "BD",
+                      "harvestDate": "2025-09-02"
+                    },
+                    "distribution": {
+                      "warehouseLocation": "Bremerhaven",
+                      "packagingType": "plastic",
+                      "storageConditions": "standard"
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
