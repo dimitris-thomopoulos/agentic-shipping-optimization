@@ -1,0 +1,2401 @@
+{
+  "name": "Final Workflow (+ frontend)",
+  "nodes": [
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "Analyze the input data and explain whether the batches or dpp data has a reason to be flagged by using the knowledge tool.\n\nYou should output valid JSON: Provide information whether it is flagged. Explain what the reason is for whether it is flagged or not. Also include which batches, its severity, and further recommendations.",
+        "options": {
+          "systemMessage": "You are an EU batch routing and compliance agent.\n\nRULE 1: You have NO internal knowledge of textile regulations. You MUST use the DPP_knowledge tool to assess the input data.\n\nRULE 2: Output ONLY raw JSON. Do not use Markdown formatting (no ```json backticks). Do not include any conversational text outside the JSON object.\n\nStructure your JSON response like this: { \"isFlagged\": boolean, \"reason\": \"string\", \"severity\": \"string\", \"recommendations\": \"string\" }"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        -1328,
+        20624
+      ],
+      "id": "6216e82d-f7a6-4368-8291-6f9621a04f22",
+      "name": "batch compliance agent"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "79fcc4d3-88dd-41a4-8aaf-f1a3389d1a92",
+              "leftValue": "={{ $json._missingCheck.ok }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -3488,
+        21040
+      ],
+      "id": "ef809104-e5d2-4901-96ac-ed0a7f21de3b",
+      "name": "If Complete"
+    },
+    {
+      "parameters": {
+        "operation": "sendAndWait",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        -3312,
+        21264
+      ],
+      "id": "baab4cbe-afc2-4188-940d-4a05d43950f2",
+      "name": "Send email",
+      "webhookId": "85aba571-aa62-4974-89f4-66106d15c463",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are given combined batch compliance and route compliance results.\n\nDecide whether the shipment should:\n- PROCEED\n- DELAY\n- BLOCK\n\nBase your decision on:\n- number and severity of flagged garments\n- overall batch risk\n- route weather risk\n\nReturn JSON only with:\ndecision, confidence (0–1), reasons[], requiredActions[].\n\nInput data:\n{{ JSON.stringify($input.all().map(i => i.json), null, 2) }}\n",
+        "options": {
+          "systemMessage": "You are the Final Decision Authority in a Logistics Supply Chain.\n\nGiven the input data, decide whether this shipment is flagged or not.\n\nIn case of flagged, please explain exactly why in detail what goes wrong. Aks yourself on which level: batch? weather? something else? maybe a combination of both.\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        -272,
+        20896
+      ],
+      "id": "853f92da-f88d-440c-8dae-cc187f28b055",
+      "name": "Decision Agent1"
+    },
+    {
+      "parameters": {
+        "jsCode": "function isMissing(v) {\n  if (v === null || v === undefined) return true;\n  if (typeof v === \"string\" && v.trim() === \"\") return true;\n  if (Array.isArray(v) && v.length === 0) return true;\n  return false;\n}\n\nconst allowNullPathPrefixes = [\n  \"batches[].orders[].garments[].dpp.collection.collectionPartner\",\n  \"batches[].orders[].garments[].dpp.recycling.recyclingProcess\",\n];\n\nconst REQUIRED = {\n  shipment: [\"shipmentId\", \"origin\", \"destination\", \"route\", \"distanceKm\", \"timeHours\", \"costEUR\", \"priority\", \"batches\"],\n  batch: [\"batchId\", \"shipmentId\", \"timestamp\", \"orders\"],\n  order: [\"id\", \"batchId\", \"brand\", \"quantity\", \"garments\"],\n  garment: [\"id\", \"orderId\", \"dpp\"],\n  dpp: [\n    \"uuid\",\n    \"rawMaterialsAndProcess\",\n    \"rawMaterialsConversion\",\n    \"component\",\n    \"productAssembly\",\n    \"finishedProduct\",\n    \"distribution\",\n    \"usage\",\n    \"afterSale\",\n    \"collection\",\n    \"recycling\",\n    \"endOfLife\",\n    \"transports\",\n    \"evaluations\",\n  ],\n};\n\nfunction pathAllowedNull(path) {\n  return allowNullPathPrefixes.some((p) => path.startsWith(p));\n}\n\nfunction addIssue(issues, path, reason, value) {\n  if (value === null && pathAllowedNull(path)) return;\n  issues.push({ path, reason, value });\n}\n\nfunction checkObjectRequired(obj, requiredKeys, basePath, issues) {\n  for (const key of requiredKeys) {\n    const v = obj?.[key];\n    const p = `${basePath}.${key}`;\n    if (isMissing(v)) addIssue(issues, p, \"missing/empty\", v);\n  }\n}\n\nfunction computeIssuesForItem(data) {\n  const shipments = Array.isArray(data) ? data : [data];\n  const issues = [];\n\n  shipments.forEach((s, si) => {\n    const sPath = Array.isArray(data) ? `[${si}]` : \"shipment\";\n\n    checkObjectRequired(s, REQUIRED.shipment, sPath, issues);\n\n    if (Array.isArray(s?.route)) {\n      s.route.forEach((r, ri) => {\n        if (isMissing(r)) addIssue(issues, `${sPath}.route[${ri}]`, \"missing/empty\", r);\n      });\n    }\n\n    (s?.batches || []).forEach((b, bi) => {\n      const bPath = `${sPath}.batches[${bi}]`;\n      checkObjectRequired(b, REQUIRED.batch, bPath, issues);\n\n      (b?.orders || []).forEach((o, oi) => {\n        const oPath = `${bPath}.orders[${oi}]`;\n        checkObjectRequired(o, REQUIRED.order, oPath, issues);\n\n        (o?.garments || []).forEach((g, gi) => {\n          const gPath = `${oPath}.garments[${gi}]`;\n          checkObjectRequired(g, REQUIRED.garment, gPath, issues);\n\n          const dpp = g?.dpp;\n          const dppPath = `${gPath}.dpp`;\n          if (isMissing(dpp)) {\n            addIssue(issues, dppPath, \"missing/empty\", dpp);\n            return;\n          }\n\n          checkObjectRequired(dpp, REQUIRED.dpp, dppPath, issues);\n\n          const nested = [\n            { obj: dpp.rawMaterialsAndProcess, keys: [\"sourceCountry\", \"materialType\", \"supplier\", \"harvestDate\", \"certifications\"], path: `${dppPath}.rawMaterialsAndProcess` },\n            { obj: dpp.rawMaterialsConversion, keys: [\"processingFacility\", \"location\", \"processDate\", \"processType\"], path: `${dppPath}.rawMaterialsConversion` },\n            { obj: dpp.finishedProduct, keys: [\"productId\", \"completionDate\", \"qualityGrade\"], path: `${dppPath}.finishedProduct` },\n            { obj: dpp.evaluations, keys: [\"esgRating\", \"certifications\", \"lastAuditDate\", \"complianceScore\"], path: `${dppPath}.evaluations` },\n          ];\n\n          nested.forEach(({ obj, keys, path }) => {\n            if (isMissing(obj)) {\n              addIssue(issues, path, \"missing/empty\", obj);\n              return;\n            }\n            keys.forEach((k) => {\n              const v = obj[k];\n              const p = `${path}.${k}`;\n              if (isMissing(v)) addIssue(issues, p, \"missing/empty\", v);\n            });\n          });\n        });\n      });\n    });\n  });\n\n  return issues;\n}\n\nreturn $input.all().map((item, idx) => {\n  const issues = computeIssuesForItem(item.json);\n  return {\n    json: {\n      ...item.json, // original data stays here\n      _missingCheck: {\n        ok: issues.length === 0,\n        missingCount: issues.length,\n        missing: issues.slice(0, 200),\n      },\n    },\n  };\n});\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -3664,
+        21040
+      ],
+      "id": "bef56bf3-9518-4263-b9b7-8ba041520f23",
+      "name": "DPP Missing Data Check"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Expecting input shape:\n// shipments → batches → orders → garments\n\nconst shipments = $json.shipments || [];\nconst batchMap = {};\n\n// Walk the structure\nfor (const shipment of shipments) {\n  for (const batch of shipment.batches || []) {\n    const batchId = batch.batchId;\n\n    if (!batchMap[batchId]) {\n      batchMap[batchId] = {\n        batchId,\n        shipmentId: shipment.shipmentId,\n        origin: shipment.origin,\n        destination: shipment.destination,\n        orders: {}\n      };\n    }\n\n    for (const order of batch.orders || []) {\n      const orderId = order.orderId;\n\n      if (!batchMap[batchId].orders[orderId]) {\n        batchMap[batchId].orders[orderId] = {\n          orderId,\n          brand: order.brand || null,\n          quantity: order.quantity || null,\n          garments: []\n        };\n      }\n\n      for (const garment of order.garments || []) {\n        batchMap[batchId].orders[orderId].garments.push({\n          id: garment.id,\n          orderId: garment.orderId,\n          dpp: garment.dpp || null\n        });\n      }\n    }\n  }\n}\n\n// Convert map → n8n items\nreturn Object.values(batchMap).map(batch => ({\n  json: {\n    batchId: batch.batchId,\n    shipmentId: batch.shipmentId,\n    origin: batch.origin,\n    destination: batch.destination,\n    orders: Object.values(batch.orders)\n  }\n}));\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2416,
+        20608
+      ],
+      "id": "7952ce7a-c6aa-47b2-9acf-ff90d231156a",
+      "name": "Batch mapping"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "5449a0c9-2ce0-4915-9ca0-dc37cf5f36da",
+              "name": "decision",
+              "value": "=FLAGGED AS {{ $json.decision }}",
+              "type": "string"
+            },
+            {
+              "id": "6604a565-608b-4c39-9d4e-c38d93c58860",
+              "name": "reason",
+              "value": "={{ $json.reasons }}",
+              "type": "string"
+            },
+            {
+              "id": "a3405fa2-f295-499b-8d6b-f1208a62b13f",
+              "name": "confidence",
+              "value": "={{ $json.confidence }} % sure of decision",
+              "type": "string"
+            },
+            {
+              "id": "fdfdc5cb-12d2-4cb3-adbb-7c151149d16d",
+              "name": "required actions",
+              "value": "={{ $json.requiredActions }}",
+              "type": "array"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        912,
+        20752
+      ],
+      "id": "dd592c5a-ae3e-450a-a817-5962d67d8dfe",
+      "name": "Generate feedback"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": []
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        912,
+        20960
+      ],
+      "id": "23b34b5e-0763-453c-b0a4-42be8ad39330",
+      "name": "Shipment authorized"
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "https://docs.google.com/spreadsheets/d/13-2l41mEY9sUmbrhmUyKpPKykH4nw75n_YTQVwzrnBY/edit?usp=sharing",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "DDP Batch Logs",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/13-2l41mEY9sUmbrhmUyKpPKykH4nw75n_YTQVwzrnBY/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {
+            "Status": "={{ $json.status }}",
+            "Rationale": "={{ $json.reason }}",
+            "Constraints": "={{ $json.new_constraints }}",
+            "BatchID": "={{ $json.batch_id }}",
+            "Timestamp": "={{ $now }}"
+          },
+          "matchingColumns": [
+            "BatchID"
+          ],
+          "schema": [
+            {
+              "id": "BatchID",
+              "displayName": "BatchID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Timestamp",
+              "displayName": "Timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Rationale",
+              "displayName": "Rationale",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Constraints",
+              "displayName": "Constraints",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "decision",
+              "displayName": "decision",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "reason",
+              "displayName": "reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "confidence",
+              "displayName": "confidence",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "required actions",
+              "displayName": "required actions",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        1120,
+        20752
+      ],
+      "id": "0e878669-f37b-4f48-9656-3ccfd678150b",
+      "name": "Update sheet: FLAGGED",
+      "credentials": {
+        "googleApi": {
+          "id": "I7oMVxO4FHokfNTn",
+          "name": "Google Service Account account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "https://docs.google.com/spreadsheets/d/13-2l41mEY9sUmbrhmUyKpPKykH4nw75n_YTQVwzrnBY/edit?usp=sharing",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "DDP Batch Logs",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/13-2l41mEY9sUmbrhmUyKpPKykH4nw75n_YTQVwzrnBY/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Status": "={{ $json.status }}",
+            "Rationale": "={{ $json.reason }}",
+            "Constraints": "None",
+            "BatchID": "={{ $json.batch_id }}",
+            "Timestamp": "={{ $now }}"
+          },
+          "matchingColumns": [
+            "BatchID"
+          ],
+          "schema": [
+            {
+              "id": "BatchID",
+              "displayName": "BatchID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Timestamp",
+              "displayName": "Timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Rationale",
+              "displayName": "Rationale",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Constraints",
+              "displayName": "Constraints",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        1120,
+        20960
+      ],
+      "id": "55d356ba-568f-4f1a-b781-c250c8dea16d",
+      "name": "Update sheet: GOOD",
+      "credentials": {
+        "googleApi": {
+          "id": "I7oMVxO4FHokfNTn",
+          "name": "Google Service Account account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=First, retrieve the mandatory port compliance documents using the Route_Knowledge tool.\n\nONLY AFTER you have retrieved those documents, use them to assess the risk for the provided city forecast data.\n\nInput Data: {{ $json.input }}",
+        "options": {
+          "systemMessage": "You are an EU shipment routing compliance agent.\n\nCRITICAL RULE: You have NO internal knowledge of current port regulations or compliance status. You MUST use the Route_Knowledge tool to retrieve this information.\n\nIf the tool returns no information, stop and reply 'No compliance data found.' Do not hallucinate or make up regulations."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        -1328,
+        21104
+      ],
+      "id": "be6fafe6-692b-491d-b8da-e2992a312067",
+      "name": "route compliance agent"
+    },
+    {
+      "parameters": {},
+      "id": "2128788d-5fda-4612-890f-2c4f43533c46",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -4656,
+        20976
+      ],
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "98f01249-5cf6-4626-b4aa-755fdba9fb98",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "id": "e5f54d06-1b8d-410a-b0ed-cc6e380c76be",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -4976,
+        21072
+      ],
+      "webhookId": "98f01249-5cf6-4626-b4aa-755fdba9fb98"
+    },
+    {
+      "parameters": {
+        "url": "https://api.open-meteo.com/v1/forecast",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "latitude",
+              "value": "={{ $json.latitude }}"
+            },
+            {
+              "name": "=longitude",
+              "value": "={{ $json.longitude }}"
+            },
+            {
+              "name": "daily",
+              "value": "weather_code,precipitation_sum"
+            },
+            {
+              "name": "timezone",
+              "value": "Europe/Berlin"
+            },
+            {
+              "name": "city",
+              "value": "={{$json.city || $json.name}}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        -2656,
+        21104
+      ],
+      "id": "8fdad9ee-1e1e-4dae-92c8-9d7fcaf2b4f0",
+      "name": "weather forecast",
+      "continueOnFail": true,
+      "notes": "Fetches weather forecast. Continues on fail to handle API errors gracefully. Preserves city name from input."
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "{\n  \"schemaVersion\": \"1.0\",\n  \"description\": \"Synthetic logistics network edges (distance/time/cost) derived from city legs found in data.json routes and origin-destination pairs.\",\n  \"nodes\": [\n    {\n      \"city\": \"Algeciras\",\n      \"latitude\": 36.1408,\n      \"longitude\": -5.4562\n    },\n    {\n      \"city\": \"antwerp\",\n      \"latitude\": 51.2213,\n      \"longitude\": 4.4051\n    },\n    {\n      \"city\": \"Barcelona\",\n      \"latitude\": 41.3894,\n      \"longitude\": 2.1686\n    },\n    {\n      \"city\": \"Bremerhaven\",\n      \"latitude\": 53.5396,\n      \"longitude\": 8.5809\n    },\n    {\n      \"city\": \"Dunkirk\",\n      \"latitude\": 51.0344,\n      \"longitude\": 2.377\n    },\n    {\n      \"city\": \"Felixstowe\",\n      \"latitude\": 51.9636,\n      \"longitude\": 1.351\n    },\n    {\n      \"city\": \"Genoa\",\n      \"latitude\": 44.4056,\n      \"longitude\": 8.9463\n    },\n    {\n      \"city\": \"Gioia Tauro\",\n      \"latitude\": 38.4247,\n      \"longitude\": 15.901\n    },\n    {\n      \"city\": \"Hamburg\",\n      \"latitude\": 53.5461,\n      \"longitude\": 9.9661\n    },\n    {\n      \"city\": \"Le Havre\",\n      \"latitude\": 49.4939,\n      \"longitude\": 0.1079\n    },\n    {\n      \"city\": \"Marseille\",\n      \"latitude\": 43.2965,\n      \"longitude\": 5.3698\n    },\n    {\n      \"city\": \"Piraeus\",\n      \"latitude\": 37.9429,\n      \"longitude\": 23.6469\n    },\n    {\n      \"city\": \"Rotterdam\",\n      \"latitude\": 51.9496,\n      \"longitude\": 4.1383\n    },\n    {\n      \"city\": \"Valencia\",\n      \"latitude\": 39.4699,\n      \"longitude\": -0.3763\n    }\n  ],\n  \"edges\": [\n    {\n      \"from\": \"Algeciras\",\n      \"to\": \"antwerp\",\n      \"distanceKm\": 679.4,\n      \"timeHours\": 17.99,\n      \"costEUR\": 636.79,\n      \"mode\": \"multimodal\"\n    },\n    {\n      \"from\": \"Algeciras\",\n      \"to\": \"Valencia\",\n      \"distanceKm\": 2109.3,\n      \"timeHours\": 48.23,\n      \"costEUR\": 1691.87,\n      \"mode\": \"rail\"\n    },\n    {\n      \"from\": \"antwerp\",\n      \"to\": \"Barcelona\",\n      \"distanceKm\": 2592.8,\n      \"timeHours\": 62.67,\n      \"costEUR\": 2301.46,\n      \"mode\": \"sea\"\n    },\n    {\n      \"from\": \"antwerp\",\n      \"to\": \"Bremerhaven\",\n      \"distanceKm\": 406.8,\n      \"timeHours\": 7.28,\n      \"costEUR\": 403.61,\n      \"mode\": \"rail\"\n    },\n    {\n      \"from\": \"antwerp\",\n      \"to\": \"Genoa\",\n      \"distanceKm\": 526.9,\n      \"timeHours\": 8.21,\n      \"costEUR\": 538.82,\n      \"mode\": \"sea\"\n    },\n    {\n      \"from\": \"antwerp\",\n      \"to\": \"Hamburg\",\n      \"distanceKm\": 1889.1,\n      \"timeHours\": 30.15,\n      \"costEUR\": 1571.0,\n      \"mode\": \"rail\"\n    },\n    {\n      \"from\": \"antwerp\",\n      \"to\": \"Piraeus\",\n      \"distanceKm\": 1437.0,\n      \"timeHours\": 34.96,\n      \"costEUR\": 1297.2,\n      \"mode\": \"rail\"\n    },\n    {\n      \"from\": \"antwerp\",\n      \"to\": \"Rotterdam\",\n      \"distanceKm\": 1255.9,\n      \"timeHours\": 28.15,\n      \"costEUR\": 1387.65,\n      \"mode\": \"sea\"\n    },\n    {\n      \"from\": \"Barcelona\",\n      \"to\": \"antwerp\",\n      \"distanceKm\": 607.2,\n      \"timeHours\": 11.68,\n      \"costEUR\": 562.06,\n      \"mode\": \"multimodal\"\n    },\n    {\n      \"from\": \"Barcelona\",\n      \"to\": \"Hamburg\",\n      \"distanceKm\": 1984.0,\n      \"timeHours\": 43.86,\n      \"costEUR\": 1351.02,\n      \"mode\": \"rail\"\n    },\n    {\n      \"from\": \"Barcelona\",\n      \"to\": \"Valencia\",\n      \"distanceKm\": 2531.3,\n      \"timeHours\": 42.91,\n      \"costEUR\": 2247.6,\n      \"mode\": \"rail\"\n    },\n    {\n      \"from\": \"Dunkirk\",\n      \"to\": \"Bremerhaven\",\n      \"distanceKm\": 253.9,\n      \"timeHours\": 5.37,\n      \"costEUR\": 298.46,\n      \"mode\": \"road\"\n    },\n    {\n      \"from\": \"Dunkirk\",\n      \"to\": \"Le Havre\",\n      \"distanceKm\": 1955.0,\n      \"timeHours\": 36.16,\n      \"costEUR\": 1327.8,\n      \"mode\": \"multimodal\"\n    },\n    {\n      \"from\": \"Dunkirk\",\n      \"to\": \"Marseille\",\n      \"distanceKm\": 1308.9,\n      \"timeHours\": 24.39,\n      \"costEUR\": 967.3,\n      \"mode\": \"multimodal\"\n    },\n    {\n      \"from\": \"Felixstowe\",\n      \"to\": \"Gioia Tauro\",\n      \"distanceKm\": 1932.5,\n      \"timeHours\": 32.52,\n      \"costEUR\": 1707.46,\n      \"mode\": \"multimodal\"\n    },\n    {\n      \"from\": \"Felixstowe\",\n      \"to\": \"Le Havre\",\n      \"distanceKm\": 1613.9,\n      \"timeHours\": 30.4,\n      \"costEUR\": 1634.11,\n      \"mode\": \"sea\"\n    },\n    {\n      \"from\": \"Genoa\",\n      \"to\": \"Barcelona\",\n      \"distanceKm\": 1559.1,\n      \"timeHours\": 38.93,\n      \"costEUR\": 1042.59,\n      \"mode\": \"multimodal\"\n    },\n    {\n      \"from\": \"Genoa\",\n      \"to\": \"Hamburg\",\n      \"distanceKm\": 1388.4,\n      \"timeHours\": 22.65,\n      \"costEUR\": 760.62,\n      \"mode\": \"road\"\n    },\n    {\n      \"from\": \"Genoa\",\n      \"to\": \"Le Havre\",\n      \"distanceKm\": 791.0,\n      \"timeHours\": 14.67,\n      \"costEUR\": 606.34,\n      \"mode\": \"sea\"\n    },\n    {\n      \"from\": \"Genoa\",\n      \"to\": \"Rotterdam\",\n      \"distanceKm\": 2430.3,\n      \"timeHours\": 60.12,\n      \"costEUR\": 2137.76,\n      \"mode\": \"road\"\n    },\n    {\n      \"from\": \"Genoa\",\n      \"to\": \"Valencia\",\n      \"distanceKm\": 1274.5,\n      \"timeHours\": 27.24,\n      \"costEUR\": 937.5,\n      \"mode\": \"road\"\n    },\n    {\n      \"from\": \"Hamburg\",\n      \"to\": \"Dunkirk\",\n      \"distanceKm\": 2148.4,\n      \"timeHours\": 41.02,\n      \"costEUR\": 1946.15,\n      \"mode\": \"rail\"\n    },\n    {\n      \"from\": \"Hamburg\",\n      \"to\": \"Felixstowe\",\n      \"distanceKm\": 373.7,\n      \"timeHours\": 8.88,\n      \"costEUR\": 544.34,\n      \"mode\": \"rail\"\n    },\n    {\n      \"from\": \"Hamburg\",\n      \"to\": \"Valencia\",\n      \"distanceKm\": 562.2,\n      \"timeHours\": 8.69,\n      \"costEUR\": 640.78,\n      \"mode\": \"road\"\n    },\n    {\n      \"from\": \"Le Havre\",\n      \"to\": \"Barcelona\",\n      \"distanceKm\": 2303.0,\n      \"timeHours\": 39.78,\n      \"costEUR\": 2093.66,\n      \"mode\": \"multimodal\"\n    },\n    {\n      \"from\": \"Le Havre\",\n      \"to\": \"Felixstowe\",\n      \"distanceKm\": 2201.8,\n      \"timeHours\": 46.02,\n      \"costEUR\": 1517.92,\n      \"mode\": \"sea\"\n    },\n    {\n      \"from\": \"Le Havre\",\n      \"to\": \"Marseille\",\n      \"distanceKm\": 2034.7,\n      \"timeHours\": 46.96,\n      \"costEUR\": 1653.6,\n      \"mode\": \"road\"\n    },\n    {\n      \"from\": \"Le Havre\",\n      \"to\": \"Rotterdam\",\n      \"distanceKm\": 1722.6,\n      \"timeHours\": 28.48,\n      \"costEUR\": 1351.26,\n      \"mode\": \"road\"\n    },\n    {\n      \"from\": \"Le Havre\",\n      \"to\": \"Valencia\",\n      \"distanceKm\": 2294.2,\n      \"timeHours\": 63.12,\n      \"costEUR\": 2315.92,\n      \"mode\": \"sea\"\n    },\n    {\n      \"from\": \"Marseille\",\n      \"to\": \"Bremerhaven\",\n      \"distanceKm\": 491.2,\n      \"timeHours\": 11.02,\n      \"costEUR\": 483.11,\n      \"mode\": \"multimodal\"\n    },\n    {\n      \"from\": \"Marseille\",\n      \"to\": \"Le Havre\",\n      \"distanceKm\": 1526.7,\n      \"timeHours\": 25.34,\n      \"costEUR\": 1502.83,\n      \"mode\": \"multimodal\"\n    },\n    {\n      \"from\": \"Piraeus\",\n      \"to\": \"Genoa\",\n      \"distanceKm\": 781.5,\n      \"timeHours\": 12.04,\n      \"costEUR\": 698.82,\n      \"mode\": \"rail\"\n    },\n    {\n      \"from\": \"Piraeus\",\n      \"to\": \"Le Havre\",\n      \"distanceKm\": 1818.6,\n      \"timeHours\": 28.19,\n      \"costEUR\": 1650.91,\n      \"mode\": \"rail\"\n    },\n    {\n      \"from\": \"Rotterdam\",\n      \"to\": \"Algeciras\",\n      \"distanceKm\": 810.4,\n      \"timeHours\": 18.39,\n      \"costEUR\": 762.08,\n      \"mode\": \"multimodal\"\n    },\n    {\n      \"from\": \"Rotterdam\",\n      \"to\": \"antwerp\",\n      \"distanceKm\": 2150.6,\n      \"timeHours\": 34.99,\n      \"costEUR\": 1674.56,\n      \"mode\": \"sea\"\n    },\n    {\n      \"from\": \"Rotterdam\",\n      \"to\": \"Barcelona\",\n      \"distanceKm\": 1834.9,\n      \"timeHours\": 30.6,\n      \"costEUR\": 1002.13,\n      \"mode\": \"road\"\n    },\n    {\n      \"from\": \"Rotterdam\",\n      \"to\": \"Genoa\",\n      \"distanceKm\": 1503.3,\n      \"timeHours\": 32.24,\n      \"costEUR\": 1547.47,\n      \"mode\": \"sea\"\n    },\n    {\n      \"from\": \"Rotterdam\",\n      \"to\": \"Gioia Tauro\",\n      \"distanceKm\": 934.2,\n      \"timeHours\": 19.87,\n      \"costEUR\": 634.86,\n      \"mode\": \"multimodal\"\n    },\n    {\n      \"from\": \"Rotterdam\",\n      \"to\": \"Hamburg\",\n      \"distanceKm\": 2245.2,\n      \"timeHours\": 42.25,\n      \"costEUR\": 2046.29,\n      \"mode\": \"sea\"\n    },\n    {\n      \"from\": \"Valencia\",\n      \"to\": \"Algeciras\",\n      \"distanceKm\": 763.0,\n      \"timeHours\": 12.29,\n      \"costEUR\": 496.91,\n      \"mode\": \"sea\"\n    },\n    {\n      \"from\": \"Valencia\",\n      \"to\": \"Barcelona\",\n      \"distanceKm\": 2149.8,\n      \"timeHours\": 48.65,\n      \"costEUR\": 1788.85,\n      \"mode\": \"multimodal\"\n    },\n    {\n      \"from\": \"Valencia\",\n      \"to\": \"Dunkirk\",\n      \"distanceKm\": 1881.8,\n      \"timeHours\": 33.63,\n      \"costEUR\": 1428.85,\n      \"mode\": \"multimodal\"\n    },\n    {\n      \"from\": \"Valencia\",\n      \"to\": \"Genoa\",\n      \"distanceKm\": 2080.9,\n      \"timeHours\": 40.98,\n      \"costEUR\": 1924.31,\n      \"mode\": \"sea\"\n    },\n    {\n      \"from\": \"Valencia\",\n      \"to\": \"Piraeus\",\n      \"distanceKm\": 1213.6,\n      \"timeHours\": 19.91,\n      \"costEUR\": 812.96,\n      \"mode\": \"multimodal\"\n    }\n  ]\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -4512,
+        21200
+      ],
+      "id": "a12c162d-8d5f-4cfc-ae34-666cbb329704",
+      "name": "Logistics Network"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        -4288,
+        21040
+      ],
+      "id": "dcad54a7-68e3-4288-a91b-226ff25c7bb5",
+      "name": "Merge Datasets1"
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "{\n  \"shipments\": [\n    {\n      \"shipmentId\": \"SHIP-001\",\n      \"origin\": \"Valencia\",\n      \"destination\": \"Bremerhaven\",\n      \"priority\": \"Medium\",\n      \"batches\": [\n        {\n          \"batchId\": \"BAT-SHIP-001-001\",\n          \"shipmentId\": \"SHIP-001\",\n          \"timestamp\": \"2025-12-14T14:43:35.221921\",\n          \"orders\": [\n            {\n              \"id\": \"ORD-BAT-SHIP-001-001-001\",\n              \"batchId\": \"BAT-SHIP-001-001\",\n              \"brand\": \"Casual Comfort\",\n              \"quantity\": 2,\n              \"garments\": [\n                {\n                  \"id\": \"GAR-ORD-BAT-SHIP-001-001-001-001\",\n                  \"orderId\": \"ORD-BAT-SHIP-001-001-001\",\n                  \"dpp\": {\n                    \"$schema\": \"https://schemas.dppmcp.com/textiles/garment.json\",\n                    \"dppMetadata\": {\n                      \"passportIdentifier\": \"https://id.gs1.org/01/09506000134039\",\n                      \"passportVersion\": \"1.0.0\",\n                      \"issuedDate\": \"2026-01-22\",\n                      \"garmentId\": \"GAR-ORD-BAT-SHIP-001-001-001-001\",\n                      \"orderId\": \"ORD-BAT-SHIP-001-001-001\"\n                    },\n                    \"productIdentification\": {\n                      \"productName\": \"Silk Scarf\",\n                      \"productCategory\": \"textiles\",\n                      \"productType\": \"garment\"\n                    },\n                    \"manufacturer\": {\n                      \"name\": \"Green Threads Ltd\",\n                      \"country\": \"GB\"\n                    },\n                    \"rawMaterialsAndProcess\": {\n                      \"materials\": [\n                        {\n                          \"materialType\": \"hemp\",\n                          \"percentage\": 70,\n                          \"certified\": false,\n                          \"certification\": \"BCI\"\n                        }\n                      ],\n                      \"sourceCountry\": \"CN\",\n                      \"harvestDate\": \"2025-10-21\"\n                    },\n                    \"distribution\": {\n                      \"warehouseLocation\": \"Bremerhaven\",\n                      \"packagingType\": \"reusable\",\n                      \"storageConditions\": \"standard\"\n                    }\n                  }\n                },\n                {\n                  \"id\": \"GAR-ORD-BAT-SHIP-001-001-001-002\",\n                  \"orderId\": \"ORD-BAT-SHIP-001-001-001\",\n                  \"dpp\": {\n                    \"$schema\": \"https://schemas.dppmcp.com/textiles/garment.json\",\n                    \"dppMetadata\": {\n                      \"passportIdentifier\": \"https://id.gs1.org/01/09506000138126\",\n                      \"passportVersion\": \"1.0.0\",\n                      \"issuedDate\": \"2026-01-22\",\n                      \"garmentId\": \"GAR-ORD-BAT-SHIP-001-001-001-002\",\n                      \"orderId\": \"ORD-BAT-SHIP-001-001-001\"\n                    },\n                    \"productIdentification\": {\n                      \"productName\": \"Cotton T-Shirt\",\n                      \"productCategory\": \"textiles\",\n                      \"productType\": \"garment\"\n                    },\n                    \"manufacturer\": {\n                      \"name\": \"Green Threads Ltd\",\n                      \"country\": \"GB\"\n                    },\n                    \"rawMaterialsAndProcess\": {\n                      \"materials\": [\n                        {\n                          \"materialType\": \"recycled_polyester\",\n                          \"percentage\": 80,\n                          \"certified\": false,\n                          \"certification\": \"BCI\"\n                        }\n                      ],\n                      \"sourceCountry\": \"IT\",\n                      \"harvestDate\": \"2025-09-09\"\n                    },\n                    \"distribution\": {\n                      \"warehouseLocation\": \"Bremerhaven\",\n                      \"packagingType\": \"biodegradable\",\n                      \"storageConditions\": \"standard\"\n                    }\n                  }\n                }\n              ]\n            },\n            {\n              \"id\": \"ORD-BAT-SHIP-001-001-002\",\n              \"batchId\": \"BAT-SHIP-001-001\",\n              \"brand\": \"FastFashion Co\",\n              \"quantity\": 2,\n              \"garments\": [\n                {\n                  \"id\": \"GAR-ORD-BAT-SHIP-001-001-002-001\",\n                  \"orderId\": \"ORD-BAT-SHIP-001-001-002\",\n                  \"dpp\": {\n                    \"$schema\": \"https://schemas.dppmcp.com/textiles/garment.json\",\n                    \"dppMetadata\": {\n                      \"passportIdentifier\": \"https://id.gs1.org/01/09506000137984\",\n                      \"passportVersion\": \"1.0.0\",\n                      \"issuedDate\": \"2026-01-22\",\n                      \"garmentId\": \"GAR-ORD-BAT-SHIP-001-001-002-001\",\n                      \"orderId\": \"ORD-BAT-SHIP-001-001-002\"\n                    },\n                    \"productIdentification\": {\n                      \"productName\": \"Hemp Trousers\",\n                      \"productCategory\": \"textiles\",\n                      \"productType\": \"garment\"\n                    },\n                    \"manufacturer\": {\n                      \"name\": \"Sustainable Wear BV\",\n                      \"country\": \"NL\"\n                    },\n                    \"rawMaterialsAndProcess\": {\n                      \"materials\": [\n                        {\n                          \"materialType\": \"wool\",\n                          \"percentage\": 100,\n                          \"certified\": true,\n                          \"certification\": null\n                        }\n                      ],\n                      \"sourceCountry\": \"IT\",\n                      \"harvestDate\": \"2025-10-23\"\n                    },\n                    \"distribution\": {\n                      \"warehouseLocation\": \"Bremerhaven\",\n                      \"packagingType\": \"biodegradable\",\n                      \"storageConditions\": \"standard\"\n                    }\n                  }\n                },\n                {\n                  \"id\": \"GAR-ORD-BAT-SHIP-001-001-002-002\",\n                  \"orderId\": \"ORD-BAT-SHIP-001-001-002\",\n                  \"dpp\": {\n                    \"$schema\": \"https://schemas.dppmcp.com/textiles/garment.json\",\n                    \"dppMetadata\": {\n                      \"passportIdentifier\": \"https://id.gs1.org/01/09506000139374\",\n                      \"passportVersion\": \"1.0.0\",\n                      \"issuedDate\": \"2026-01-22\",\n                      \"garmentId\": \"GAR-ORD-BAT-SHIP-001-001-002-002\",\n                      \"orderId\": \"ORD-BAT-SHIP-001-001-002\"\n                    },\n                    \"productIdentification\": {\n                      \"productName\": \"Cotton T-Shirt\",\n                      \"productCategory\": \"textiles\",\n                      \"productType\": \"garment\"\n                    },\n                    \"manufacturer\": {\n                      \"name\": \"Sustainable Wear BV\",\n                      \"country\": \"NL\"\n                    },\n                    \"rawMaterialsAndProcess\": {\n                      \"materials\": [\n                        {\n                          \"materialType\": \"recycled_polyester\",\n                          \"percentage\": 80,\n                          \"certified\": true,\n                          \"certification\": \"BCI\"\n                        }\n                      ],\n                      \"sourceCountry\": \"IN\",\n                      \"harvestDate\": \"2025-08-30\"\n                    },\n                    \"distribution\": {\n                      \"warehouseLocation\": \"Bremerhaven\",\n                      \"packagingType\": \"recyclable\",\n                      \"storageConditions\": \"standard\"\n                    }\n                  }\n                }\n              ]\n            },\n            {\n              \"id\": \"ORD-BAT-SHIP-001-001-003\",\n              \"batchId\": \"BAT-SHIP-001-001\",\n              \"brand\": \"Street Style\",\n              \"quantity\": 2,\n              \"garments\": [\n                {\n                  \"id\": \"GAR-ORD-BAT-SHIP-001-001-003-001\",\n                  \"orderId\": \"ORD-BAT-SHIP-001-001-003\",\n                  \"dpp\": {\n                    \"$schema\": \"https://schemas.dppmcp.com/textiles/garment.json\",\n                    \"dppMetadata\": {\n                      \"passportIdentifier\": \"https://id.gs1.org/01/09506000138107\",\n                      \"passportVersion\": \"1.0.0\",\n                      \"issuedDate\": \"2026-01-22\",\n                      \"garmentId\": \"GAR-ORD-BAT-SHIP-001-001-003-001\",\n                      \"orderId\": \"ORD-BAT-SHIP-001-001-003\"\n                    },\n                    \"productIdentification\": {\n                      \"productName\": \"Organic Polo Shirt\",\n                      \"productCategory\": \"textiles\",\n                      \"productType\": \"garment\"\n                    },\n                    \"manufacturer\": {\n                      \"name\": \"Nordic Fashion AB\",\n                      \"country\": \"SE\"\n                    },\n                    \"rawMaterialsAndProcess\": {\n                      \"materials\": [\n                        {\n                          \"materialType\": \"recycled_polyester\",\n                          \"percentage\": 100,\n                          \"certified\": true,\n                          \"certification\": \"BCI\"\n                        }\n                      ],\n                      \"sourceCountry\": \"TR\",\n                      \"harvestDate\": \"2025-09-24\"\n                    },\n                    \"distribution\": {\n                      \"warehouseLocation\": \"Bremerhaven\",\n                      \"packagingType\": \"reusable\",\n                      \"storageConditions\": \"standard\"\n                    }\n                  }\n                },\n                {\n                  \"id\": \"GAR-ORD-BAT-SHIP-001-001-003-002\",\n                  \"orderId\": \"ORD-BAT-SHIP-001-001-003\",\n                  \"dpp\": {\n                    \"$schema\": \"https://schemas.dppmcp.com/textiles/garment.json\",\n                    \"dppMetadata\": {\n                      \"passportIdentifier\": \"https://id.gs1.org/01/09506000133616\",\n                      \"passportVersion\": \"1.0.0\",\n                      \"issuedDate\": \"2026-01-22\",\n                      \"garmentId\": \"GAR-ORD-BAT-SHIP-001-001-003-002\",\n                      \"orderId\": \"ORD-BAT-SHIP-001-001-003\"\n                    },\n                    \"productIdentification\": {\n                      \"productName\": \"Bamboo Socks\",\n                      \"productCategory\": \"textiles\",\n                      \"productType\": \"garment\"\n                    },\n                    \"manufacturer\": {\n                      \"name\": \"Sustainable Wear BV\",\n                      \"country\": \"NL\"\n                    },\n                    \"rawMaterialsAndProcess\": {\n                      \"materials\": [\n                        {\n                          \"materialType\": \"bamboo\",\n                          \"percentage\": 70,\n                          \"certified\": false,\n                          \"certification\": \"GOTS\"\n                        }\n                      ],\n                      \"sourceCountry\": \"CN\",\n                      \"harvestDate\": \"2025-09-09\"\n                    },\n                    \"distribution\": {\n                      \"warehouseLocation\": \"Bremerhaven\",\n                      \"packagingType\": \"biodegradable\",\n                      \"storageConditions\": \"standard\"\n                    }\n                  }\n                }\n              ]\n            },\n            {\n              \"id\": \"ORD-BAT-SHIP-001-001-004\",\n              \"batchId\": \"BAT-SHIP-001-001\",\n              \"brand\": \"Premium Garments\",\n              \"quantity\": 2,\n              \"garments\": [\n                {\n                  \"id\": \"GAR-ORD-BAT-SHIP-001-001-004-001\",\n                  \"orderId\": \"ORD-BAT-SHIP-001-001-004\",\n                  \"dpp\": {\n                    \"$schema\": \"https://schemas.dppmcp.com/textiles/garment.json\",\n                    \"dppMetadata\": {\n                      \"passportIdentifier\": \"https://id.gs1.org/01/09506000132294\",\n                      \"passportVersion\": \"1.0.0\",\n                      \"issuedDate\": \"2026-01-22\",\n                      \"garmentId\": \"GAR-ORD-BAT-SHIP-001-001-004-001\",\n                      \"orderId\": \"ORD-BAT-SHIP-001-001-004\"\n                    },\n                    \"productIdentification\": {\n                      \"productName\": \"Silk Scarf\",\n                      \"productCategory\": \"textiles\",\n                      \"productType\": \"garment\"\n                    },\n                    \"manufacturer\": {\n                      \"name\": \"Nordic Fashion AB\",\n                      \"country\": \"SE\"\n                    },\n                    \"rawMaterialsAndProcess\": {\n                      \"materials\": [\n                        {\n                          \"materialType\": \"bamboo\",\n                          \"percentage\": 95,\n                          \"certified\": true,\n                          \"certification\": \"OEKO-TEX\"\n                        }\n                      ],\n                      \"sourceCountry\": \"CN\",\n                      \"harvestDate\": \"2025-09-21\"\n                    },\n                    \"distribution\": {\n                      \"warehouseLocation\": \"Bremerhaven\",\n                      \"packagingType\": \"biodegradable\",\n                      \"storageConditions\": \"standard\"\n                    }\n                  }\n                },\n                {\n                  \"id\": \"GAR-ORD-BAT-SHIP-001-001-004-002\",\n                  \"orderId\": \"ORD-BAT-SHIP-001-001-004\",\n                  \"dpp\": {\n                    \"$schema\": \"https://schemas.dppmcp.com/textiles/garment.json\",\n                    \"dppMetadata\": {\n                      \"passportIdentifier\": \"https://id.gs1.org/01/09506000135871\",\n                      \"passportVersion\": \"1.0.0\",\n                      \"issuedDate\": \"2026-01-22\",\n                      \"garmentId\": \"GAR-ORD-BAT-SHIP-001-001-004-002\",\n                      \"orderId\": \"ORD-BAT-SHIP-001-001-004\"\n                    },\n                    \"productIdentification\": {\n                      \"productName\": \"Denim Jacket\",\n                      \"productCategory\": \"textiles\",\n                      \"productType\": \"garment\"\n                    },\n                    \"manufacturer\": {\n                      \"name\": \"Mediterranean Apparel\",\n                      \"country\": \"ES\"\n                    },\n                    \"rawMaterialsAndProcess\": {\n                      \"materials\": [\n                        {\n                          \"materialType\": \"organic_cotton\",\n                          \"percentage\": 95,\n                          \"certified\": true,\n                          \"certification\": \"GOTS\"\n                        }\n                      ],\n                      \"sourceCountry\": \"IN\",\n                      \"harvestDate\": \"2025-09-19\"\n                    },\n                    \"distribution\": {\n                      \"warehouseLocation\": \"Bremerhaven\",\n                      \"packagingType\": \"recyclable\",\n                      \"storageConditions\": \"standard\"\n                    }\n                  }\n                }\n              ]\n            },\n            {\n              \"id\": \"ORD-BAT-SHIP-001-001-005\",\n              \"batchId\": \"BAT-SHIP-001-001\",\n              \"brand\": \"Style Hub\",\n              \"quantity\": 2,\n              \"garments\": [\n                {\n                  \"id\": \"GAR-ORD-BAT-SHIP-001-001-005-001\",\n                  \"orderId\": \"ORD-BAT-SHIP-001-001-005\",\n                  \"dpp\": {\n                    \"$schema\": \"https://schemas.dppmcp.com/textiles/garment.json\",\n                    \"dppMetadata\": {\n                      \"passportIdentifier\": \"https://id.gs1.org/01/09506000135537\",\n                      \"passportVersion\": \"1.0.0\",\n                      \"issuedDate\": \"2026-01-22\",\n                      \"garmentId\": \"GAR-ORD-BAT-SHIP-001-001-005-001\",\n                      \"orderId\": \"ORD-BAT-SHIP-001-001-005\"\n                    },\n                    \"productIdentification\": {\n                      \"productName\": \"Silk Scarf\",\n                      \"productCategory\": \"textiles\",\n                      \"productType\": \"garment\"\n                    },\n                    \"manufacturer\": {\n                      \"name\": \"Green Threads Ltd\",\n                      \"country\": \"GB\"\n                    },\n                    \"rawMaterialsAndProcess\": {\n                      \"materials\": [\n                        {\n                          \"materialType\": \"silk\",\n                          \"percentage\": 100,\n                          \"certified\": false,\n                          \"certification\": \"BCI\"\n                        }\n                      ],\n                      \"sourceCountry\": \"CN\",\n                      \"harvestDate\": \"2025-09-02\"\n                    },\n                    \"distribution\": {\n                      \"warehouseLocation\": \"Bremerhaven\",\n                      \"packagingType\": \"biodegradable\",\n                      \"storageConditions\": \"standard\"\n                    }\n                  }\n                },\n                {\n                  \"id\": \"GAR-ORD-BAT-SHIP-001-001-005-002\",\n                  \"orderId\": \"ORD-BAT-SHIP-001-001-005\",\n                  \"dpp\": {\n                    \"$schema\": \"https://schemas.dppmcp.com/textiles/garment.json\",\n                    \"dppMetadata\": {\n                      \"passportIdentifier\": \"https://id.gs1.org/01/09506000133743\",\n                      \"passportVersion\": \"1.0.0\",\n                      \"issuedDate\": \"2026-01-22\",\n                      \"garmentId\": \"GAR-ORD-BAT-SHIP-001-001-005-002\",\n                      \"orderId\": \"ORD-BAT-SHIP-001-001-005\"\n                    },\n                    \"productIdentification\": {\n                      \"productName\": \"Cotton T-Shirt\",\n                      \"productCategory\": \"textiles\",\n                      \"productType\": \"garment\"\n                    },\n                    \"manufacturer\": {\n                      \"name\": \"Sustainable Wear BV\",\n                      \"country\": \"NL\"\n                    },\n                    \"rawMaterialsAndProcess\": {\n                      \"materials\": [\n                        {\n                          \"materialType\": \"bamboo\",\n                          \"percentage\": 95,\n                          \"certified\": true,\n                          \"certification\": \"BCI\"\n                        }\n                      ],\n                      \"sourceCountry\": \"IT\",\n                      \"harvestDate\": \"2025-08-15\"\n                    },\n                    \"distribution\": {\n                      \"warehouseLocation\": \"Bremerhaven\",\n                      \"packagingType\": \"biodegradable\",\n                      \"storageConditions\": \"standard\"\n                    }\n                  }\n                }\n              ]\n            }\n          ]\n        },\n        {\n          \"batchId\": \"BAT-SHIP-001-002\",\n          \"shipmentId\": \"SHIP-001\",\n          \"timestamp\": \"2025-12-14T16:43:35.221921\",\n          \"orders\": [\n            {\n              \"id\": \"ORD-BAT-SHIP-001-002-001\",\n              \"batchId\": \"BAT-SHIP-001-002\",\n              \"brand\": \"Designer Dresses\",\n              \"quantity\": 3,\n              \"garments\": [\n                {\n                  \"id\": \"GAR-ORD-BAT-SHIP-001-002-001-001\",\n                  \"orderId\": \"ORD-BAT-SHIP-001-002-001\",\n                  \"dpp\": {\n                    \"$schema\": \"https://schemas.dppmcp.com/textiles/garment.json\",\n                    \"dppMetadata\": {\n                      \"passportIdentifier\": \"https://id.gs1.org/01/09506000139170\",\n                      \"passportVersion\": \"1.0.0\",\n                      \"issuedDate\": \"2026-01-22\",\n                      \"garmentId\": \"GAR-ORD-BAT-SHIP-001-002-001-001\",\n                      \"orderId\": \"ORD-BAT-SHIP-001-002-001\"\n                    },\n                    \"productIdentification\": {\n                      \"productName\": \"Silk Scarf\",\n                      \"productCategory\": \"textiles\",\n                      \"productType\": \"garment\"\n                    },\n                    \"manufacturer\": {\n                      \"name\": \"Nordic Fashion AB\",\n                      \"country\": \"SE\"\n                    },\n                    \"rawMaterialsAndProcess\": {\n                      \"materials\": [\n                        {\n                          \"materialType\": \"linen\",\n                          \"percentage\": 95,\n                          \"certified\": false,\n                          \"certification\": \"OEKO-TEX\"\n                        }\n                      ],\n                      \"sourceCountry\": \"PT\",\n                      \"harvestDate\": \"2025-09-18\"\n                    },\n                    \"distribution\": {\n                      \"warehouseLocation\": \"Bremerhaven\",\n                      \"packagingType\": \"biodegradable\",\n                      \"storageConditions\": \"standard\"\n                    }\n                  }\n                },\n                {\n                  \"id\": \"GAR-ORD-BAT-SHIP-001-002-001-002\",\n                  \"orderId\": \"ORD-BAT-SHIP-001-002-001\",\n                  \"dpp\": {\n                    \"$schema\": \"https://schemas.dppmcp.com/textiles/garment.json\",\n                    \"dppMetadata\": {\n                      \"passportIdentifier\": \"https://id.gs1.org/01/09506000135643\",\n                      \"passportVersion\": \"1.0.0\",\n                      \"issuedDate\": \"2026-01-22\",\n                      \"garmentId\": \"GAR-ORD-BAT-SHIP-001-002-001-002\",\n                      \"orderId\": \"ORD-BAT-SHIP-001-002-001\"\n                    },\n                    \"productIdentification\": {\n                      \"productName\": \"Denim Jacket\",\n                      \"productCategory\": \"textiles\",\n                      \"productType\": \"garment\"\n                    },\n                    \"manufacturer\": {\n                      \"name\": \"EcoTextile GmbH\",\n                      \"country\": \"DE\"\n                    },\n                    \"rawMaterialsAndProcess\": {\n                      \"materials\": [\n                        {\n                          \"materialType\": \"wool\",\n                          \"percentage\": 70,\n                          \"certified\": true,\n                          \"certification\": \"OEKO-TEX\"\n                        }\n                      ],\n                      \"sourceCountry\": \"CN\",\n                      \"harvestDate\": \"2025-09-04\"\n                    },\n                    \"distribution\": {\n                      \"warehouseLocation\": \"Bremerhaven\",\n                      \"packagingType\": \"biodegradable\",\n                      \"storageConditions\": \"standard\"\n                    }\n                  }\n                },\n                {\n                  \"id\": \"GAR-ORD-BAT-SHIP-001-002-001-003\",\n                  \"orderId\": \"ORD-BAT-SHIP-001-002-001\",\n                  \"dpp\": {\n                    \"$schema\": \"https://schemas.dppmcp.com/textiles/garment.json\",\n                    \"dppMetadata\": {\n                      \"passportIdentifier\": \"https://id.gs1.org/01/09506000139243\",\n                      \"passportVersion\": \"1.0.0\",\n                      \"issuedDate\": \"2026-01-22\",\n                      \"garmentId\": \"GAR-ORD-BAT-SHIP-001-002-001-003\",\n                      \"orderId\": \"ORD-BAT-SHIP-001-002-001\"\n                    },\n                    \"productIdentification\": {\n                      \"productName\": \"Denim Jacket\",\n                      \"productCategory\": \"textiles\",\n                      \"productType\": \"garment\"\n                    },\n                    \"manufacturer\": {\n                      \"name\": \"EcoTextile GmbH\",\n                      \"country\": \"DE\"\n                    },\n                    \"rawMaterialsAndProcess\": {\n                      \"materials\": [\n                        {\n                          \"materialType\": \"wool\",\n                          \"percentage\": 95,\n                          \"certified\": false,\n                          \"certification\": \"BCI\"\n                        }\n                      ],\n                      \"sourceCountry\": \"BD\",\n                      \"harvestDate\": \"2025-09-23\"\n                    },\n                    \"distribution\": {\n                      \"warehouseLocation\": \"Bremerhaven\",\n                      \"packagingType\": \"biodegradable\",\n                      \"storageConditions\": \"standard\"\n                    }\n                  }\n                }\n              ]\n            },\n            {\n              \"id\": \"ORD-BAT-SHIP-001-002-002\",\n              \"batchId\": \"BAT-SHIP-001-002\",\n              \"brand\": \"Street Style\",\n              \"quantity\": 1,\n              \"garments\": [\n                {\n                  \"id\": \"GAR-ORD-BAT-SHIP-001-002-002-001\",\n                  \"orderId\": \"ORD-BAT-SHIP-001-002-002\",\n                  \"dpp\": {\n                    \"$schema\": \"https://schemas.dppmcp.com/textiles/garment.json\",\n                    \"dppMetadata\": {\n                      \"passportIdentifier\": \"https://id.gs1.org/01/09506000138817\",\n                      \"passportVersion\": \"1.0.0\",\n                      \"issuedDate\": \"2026-01-22\",\n                      \"garmentId\": \"GAR-ORD-BAT-SHIP-001-002-002-001\",\n                      \"orderId\": \"ORD-BAT-SHIP-001-002-002\"\n                    },\n                    \"productIdentification\": {\n                      \"productName\": \"Linen Blouse\",\n                      \"productCategory\": \"textiles\",\n                      \"productType\": \"garment\"\n                    },\n                    \"manufacturer\": {\n                      \"name\": \"Green Threads Ltd\",\n                      \"country\": \"GB\"\n                    },\n                    \"rawMaterialsAndProcess\": {\n                      \"materials\": [\n                        {\n                          \"materialType\": \"silk\",\n                          \"percentage\": 100,\n                          \"certified\": true,\n                          \"certification\": \"BCI\"\n                        }\n                      ],\n                      \"sourceCountry\": \"IT\",\n                      \"harvestDate\": \"2025-08-05\"\n                    },\n                    \"distribution\": {\n                      \"warehouseLocation\": \"Bremerhaven\",\n                      \"packagingType\": \"recyclable\",\n                      \"storageConditions\": \"standard\"\n                    }\n                  }\n                }\n              ]\n            },\n            {\n              \"id\": \"ORD-BAT-SHIP-001-002-003\",\n              \"batchId\": \"BAT-SHIP-001-002\",\n              \"brand\": \"Quality Clothes\",\n              \"quantity\": 1,\n              \"garments\": [\n                {\n                  \"id\": \"GAR-ORD-BAT-SHIP-001-002-003-001\",\n                  \"orderId\": \"ORD-BAT-SHIP-001-002-003\",\n                  \"dpp\": {\n                    \"$schema\": \"https://schemas.dppmcp.com/textiles/garment.json\",\n                    \"dppMetadata\": {\n                      \"passportIdentifier\": \"https://id.gs1.org/01/09506000131034\",\n                      \"passportVersion\": \"1.0.0\",\n                      \"issuedDate\": \"2026-01-22\",\n                      \"garmentId\": \"GAR-ORD-BAT-SHIP-001-002-003-001\",\n                      \"orderId\": \"ORD-BAT-SHIP-001-002-003\"\n                    },\n                    \"productIdentification\": {\n                      \"productName\": \"Silk Scarf\",\n                      \"productCategory\": \"textiles\",\n                      \"productType\": \"garment\"\n                    },\n                    \"manufacturer\": {\n                      \"name\": \"Sustainable Wear BV\",\n                      \"country\": \"NL\"\n                    },\n                    \"rawMaterialsAndProcess\": {\n                      \"materials\": [\n                        {\n                          \"materialType\": \"bamboo\",\n                          \"percentage\": 70,\n                          \"certified\": true,\n                          \"certification\": \"BCI\"\n                        }\n                      ],\n                      \"sourceCountry\": \"BD\",\n                      \"harvestDate\": \"2025-08-20\"\n                    },\n                    \"distribution\": {\n                      \"warehouseLocation\": \"Bremerhaven\",\n                      \"packagingType\": \"recyclable\",\n                      \"storageConditions\": \"standard\"\n                    }\n                  }\n                }\n              ]\n            },\n            {\n              \"id\": \"ORD-BAT-SHIP-001-002-004\",\n              \"batchId\": \"BAT-SHIP-001-002\",\n              \"brand\": \"Luxury Threads\",\n              \"quantity\": 1,\n              \"garments\": [\n                {\n                  \"id\": \"GAR-ORD-BAT-SHIP-001-002-004-001\",\n                  \"orderId\": \"ORD-BAT-SHIP-001-002-004\",\n                  \"dpp\": {\n                    \"$schema\": \"https://schemas.dppmcp.com/textiles/garment.json\",\n                    \"dppMetadata\": {\n                      \"passportIdentifier\": \"https://id.gs1.org/01/09506000133215\",\n                      \"passportVersion\": \"1.0.0\",\n                      \"issuedDate\": \"2026-01-22\",\n                      \"garmentId\": \"GAR-ORD-BAT-SHIP-001-002-004-001\",\n                      \"orderId\": \"ORD-BAT-SHIP-001-002-004\"\n                    },\n                    \"productIdentification\": {\n                      \"productName\": \"Organic Polo Shirt\",\n                      \"productCategory\": \"textiles\",\n                      \"productType\": \"garment\"\n                    },\n                    \"manufacturer\": {\n                      \"name\": \"Sustainable Wear BV\",\n                      \"country\": \"NL\"\n                    },\n                    \"rawMaterialsAndProcess\": {\n                      \"materials\": [\n                        {\n                          \"materialType\": \"linen\",\n                          \"percentage\": 100,\n                          \"certified\": false,\n                          \"certification\": \"GOTS\"\n                        }\n                      ],\n                      \"sourceCountry\": \"PT\",\n                      \"harvestDate\": \"2025-08-13\"\n                    },\n                    \"distribution\": {\n                      \"warehouseLocation\": \"Bremerhaven\",\n                      \"packagingType\": \"reusable\",\n                      \"storageConditions\": \"standard\"\n                    }\n                  }\n                }\n              ]\n            },\n            {\n              \"id\": \"ORD-BAT-SHIP-001-002-005\",\n              \"batchId\": \"BAT-SHIP-001-002\",\n              \"brand\": \"EcoWear Ltd\",\n              \"quantity\": 1,\n              \"garments\": [\n                {\n                  \"id\": \"GAR-ORD-BAT-SHIP-001-002-005-001\",\n                  \"orderId\": \"ORD-BAT-SHIP-001-002-005\",\n                  \"dpp\": {\n                    \"$schema\": \"https://schemas.dppmcp.com/textiles/garment.json\",\n                    \"dppMetadata\": {\n                      \"passportIdentifier\": \"https://id.gs1.org/01/09506000135827\",\n                      \"passportVersion\": \"1.0.0\",\n                      \"issuedDate\": \"2026-01-22\",\n                      \"garmentId\": \"GAR-ORD-BAT-SHIP-001-002-005-001\",\n                      \"orderId\": \"ORD-BAT-SHIP-001-002-005\"\n                    },\n                    \"productIdentification\": {\n                      \"productName\": \"Silk Scarf\",\n                      \"productCategory\": \"textiles\",\n                      \"productType\": \"garment\"\n                    },\n                    \"manufacturer\": {\n                      \"name\": \"Sustainable Wear BV\",\n                      \"country\": \"NL\"\n                    },\n                    \"rawMaterialsAndProcess\": {\n                      \"materials\": [\n                        {\n                          \"materialType\": \"bamboo\",\n                          \"percentage\": 100,\n                          \"certified\": true,\n                          \"certification\": \"BCI\"\n                        }\n                      ],\n                      \"sourceCountry\": \"BD\",\n                      \"harvestDate\": \"2025-10-21\"\n                    },\n                    \"distribution\": {\n                      \"warehouseLocation\": \"Bremerhaven\",\n                      \"packagingType\": \"recyclable\",\n                      \"storageConditions\": \"standard\"\n                    }\n                  }\n                }\n              ]\n            }\n          ]\n        },\n        {\n          \"batchId\": \"BAT-SHIP-001-003\",\n          \"shipmentId\": \"SHIP-001\",\n          \"timestamp\": \"2025-12-14T18:43:35.221921\",\n          \"orders\": [\n            {\n              \"id\": \"ORD-BAT-SHIP-001-003-001\",\n              \"batchId\": \"BAT-SHIP-001-003\",\n              \"brand\": \"Fashion Forward\",\n              \"quantity\": 3,\n              \"garments\": [\n                {\n                  \"id\": \"GAR-ORD-BAT-SHIP-001-003-001-001\",\n                  \"orderId\": \"ORD-BAT-SHIP-001-003-001\",\n                  \"dpp\": {\n                    \"$schema\": \"https://schemas.dppmcp.com/textiles/garment.json\",\n                    \"dppMetadata\": {\n                      \"passportIdentifier\": \"https://id.gs1.org/01/09506000133410\",\n                      \"passportVersion\": \"1.0.0\",\n                      \"issuedDate\": \"2026-01-22\",\n                      \"garmentId\": \"GAR-ORD-BAT-SHIP-001-003-001-001\",\n                      \"orderId\": \"ORD-BAT-SHIP-001-003-001\"\n                    },\n                    \"productIdentification\": {\n                      \"productName\": \"Hemp Trousers\",\n                      \"productCategory\": \"textiles\",\n                      \"productType\": \"garment\"\n                    },\n                    \"manufacturer\": {\n                      \"name\": \"EcoTextile GmbH\",\n                      \"country\": \"DE\"\n                    },\n                    \"rawMaterialsAndProcess\": {\n                      \"materials\": [\n                        {\n                          \"materialType\": \"bamboo\",\n                          \"percentage\": 70,\n                          \"certified\": false,\n                          \"certification\": \"GOTS\"\n                        }\n                      ],\n                      \"sourceCountry\": \"IT\",\n                      \"harvestDate\": \"2025-08-18\"\n                    },\n                    \"distribution\": {\n                      \"warehouseLocation\": \"Bremerhaven\",\n                      \"packagingType\": \"reusable\",\n                      \"storageConditions\": \"standard\"\n                    }\n                  }\n                },\n                {\n                  \"id\": \"GAR-ORD-BAT-SHIP-001-003-001-002\",\n                  \"orderId\": \"ORD-BAT-SHIP-001-003-001\",\n                  \"dpp\": {\n                    \"$schema\": \"https://schemas.dppmcp.com/textiles/garment.json\",\n                    \"dppMetadata\": {\n                      \"passportIdentifier\": \"https://id.gs1.org/01/09506000132514\",\n                      \"passportVersion\": \"1.0.0\",\n                      \"issuedDate\": \"2026-01-22\",\n                      \"garmentId\": \"GAR-ORD-BAT-SHIP-001-003-001-002\",\n                      \"orderId\": \"ORD-BAT-SHIP-001-003-001\"\n                    },\n                    \"productIdentification\": {\n                      \"productName\": \"Wool Sweater\",\n                      \"productCategory\": \"textiles\",\n                      \"productType\": \"garment\"\n                    },\n                    \"manufacturer\": {\n                      \"name\": \"Nordic Fashion AB\",\n                      \"country\": \"SE\"\n                    },\n                    \"rawMaterialsAndProcess\": {\n                      \"materials\": [\n                        {\n                          \"materialType\": \"hemp\",\n                          \"percentage\": 70,\n                          \"certified\": false,\n                          \"certification\": \"GOTS\"\n                        }\n                      ],\n                      \"sourceCountry\": \"TR\",\n                      \"harvestDate\": \"2025-08-31\"\n                    },\n                    \"distribution\": {\n                      \"warehouseLocation\": \"Bremerhaven\",\n                      \"packagingType\": \"reusable\",\n                      \"storageConditions\": \"standard\"\n                    }\n                  }\n                },\n                {\n                  \"id\": \"GAR-ORD-BAT-SHIP-001-003-001-003\",\n                  \"orderId\": \"ORD-BAT-SHIP-001-003-001\",\n                  \"dpp\": {\n                    \"$schema\": \"https://schemas.dppmcp.com/textiles/garment.json\",\n                    \"dppMetadata\": {\n                      \"passportIdentifier\": \"https://id.gs1.org/01/09506000131868\",\n                      \"passportVersion\": \"1.0.0\",\n                      \"issuedDate\": \"2026-01-22\",\n                      \"garmentId\": \"GAR-ORD-BAT-SHIP-001-003-001-003\",\n                      \"orderId\": \"ORD-BAT-SHIP-001-003-001\"\n                    },\n                    \"productIdentification\": {\n                      \"productName\": \"Linen Blouse\",\n                      \"productCategory\": \"textiles\",\n                      \"productType\": \"garment\"\n                    },\n                    \"manufacturer\": {\n                      \"name\": \"Nordic Fashion AB\",\n                      \"country\": \"SE\"\n                    },\n                    \"rawMaterialsAndProcess\": {\n                      \"materials\": [\n                        {\n                          \"materialType\": \"cotton\",\n                          \"percentage\": 80,\n                          \"certified\": true,\n                          \"certification\": null\n                        }\n                      ],\n                      \"sourceCountry\": \"TR\",\n                      \"harvestDate\": \"2025-09-14\"\n                    },\n                    \"distribution\": {\n                      \"warehouseLocation\": \"Bremerhaven\",\n                      \"packagingType\": \"reusable\",\n                      \"storageConditions\": \"standard\"\n                    }\n                  }\n                }\n              ]\n            },\n            {\n              \"id\": \"ORD-BAT-SHIP-001-003-002\",\n              \"batchId\": \"BAT-SHIP-001-003\",\n              \"brand\": \"Quality Clothes\",\n              \"quantity\": 1,\n              \"garments\": [\n                {\n                  \"id\": \"GAR-ORD-BAT-SHIP-001-003-002-001\",\n                  \"orderId\": \"ORD-BAT-SHIP-001-003-002\",\n                  \"dpp\": {\n                    \"$schema\": \"https://schemas.dppmcp.com/textiles/garment.json\",\n                    \"dppMetadata\": {\n                      \"passportIdentifier\": \"https://id.gs1.org/01/09506000132852\",\n                      \"passportVersion\": \"1.0.0\",\n                      \"issuedDate\": \"2026-01-22\",\n                      \"garmentId\": \"GAR-ORD-BAT-SHIP-001-003-002-001\",\n                      \"orderId\": \"ORD-BAT-SHIP-001-003-002\"\n                    },\n                    \"productIdentification\": {\n                      \"productName\": \"Silk Scarf\",\n                      \"productCategory\": \"textiles\",\n                      \"productType\": \"garment\"\n                    },\n                    \"manufacturer\": {\n                      \"name\": \"Sustainable Wear BV\",\n                      \"country\": \"NL\"\n                    },\n                    \"rawMaterialsAndProcess\": {\n                      \"materials\": [\n                        {\n                          \"materialType\": \"bamboo\",\n                          \"percentage\": 80,\n                          \"certified\": true,\n                          \"certification\": \"OEKO-TEX\"\n                        }\n                      ],\n                      \"sourceCountry\": \"CN\",\n                      \"harvestDate\": \"2025-08-05\"\n                    },\n                    \"distribution\": {\n                      \"warehouseLocation\": \"Bremerhaven\",\n                      \"packagingType\": \"reusable\",\n                      \"storageConditions\": \"standard\"\n                    }\n                  }\n                }\n              ]\n            },\n            {\n              \"id\": \"ORD-BAT-SHIP-001-003-003\",\n              \"batchId\": \"BAT-SHIP-001-003\",\n              \"brand\": \"Urban Style\",\n              \"quantity\": 1,\n              \"garments\": [\n                {\n                  \"id\": \"GAR-ORD-BAT-SHIP-001-003-003-001\",\n                  \"orderId\": \"ORD-BAT-SHIP-001-003-003\",\n                  \"dpp\": {\n                    \"$schema\": \"https://schemas.dppmcp.com/textiles/garment.json\",\n                    \"dppMetadata\": {\n                      \"passportIdentifier\": \"https://id.gs1.org/01/09506000137583\",\n                      \"passportVersion\": \"1.0.0\",\n                      \"issuedDate\": \"2026-01-22\",\n                      \"garmentId\": \"GAR-ORD-BAT-SHIP-001-003-003-001\",\n                      \"orderId\": \"ORD-BAT-SHIP-001-003-003\"\n                    },\n                    \"productIdentification\": {\n                      \"productName\": \"Wool Sweater\",\n                      \"productCategory\": \"textiles\",\n                      \"productType\": \"garment\"\n                    },\n                    \"manufacturer\": {\n                      \"name\": \"Green Threads Ltd\",\n                      \"country\": \"GB\"\n                    },\n                    \"rawMaterialsAndProcess\": {\n                      \"materials\": [\n                        {\n                          \"materialType\": \"recycled_polyester\",\n                          \"percentage\": 80,\n                          \"certified\": true,\n                          \"certification\": null\n                        }\n                      ],\n                      \"sourceCountry\": \"IN\",\n                      \"harvestDate\": \"2025-07-26\"\n                    },\n                    \"distribution\": {\n                      \"warehouseLocation\": \"Bremerhaven\",\n                      \"packagingType\": \"reusable\",\n                      \"storageConditions\": \"standard\"\n                    }\n                  }\n                }\n              ]\n            },\n            {\n              \"id\": \"ORD-BAT-SHIP-001-003-004\",\n              \"batchId\": \"BAT-SHIP-001-003\",\n              \"brand\": \"Luxury Threads\",\n              \"quantity\": 2,\n              \"garments\": [\n                {\n                  \"id\": \"GAR-ORD-BAT-SHIP-001-003-004-001\",\n                  \"orderId\": \"ORD-BAT-SHIP-001-003-004\",\n                  \"dpp\": {\n                    \"$schema\": \"https://schemas.dppmcp.com/textiles/garment.json\",\n                    \"dppMetadata\": {\n                      \"passportIdentifier\": \"https://id.gs1.org/01/09506000139428\",\n                      \"passportVersion\": \"1.0.0\",\n                      \"issuedDate\": \"2026-01-22\",\n                      \"garmentId\": \"GAR-ORD-BAT-SHIP-001-003-004-001\",\n                      \"orderId\": \"ORD-BAT-SHIP-001-003-004\"\n                    },\n                    \"productIdentification\": {\n                      \"productName\": \"Denim Jacket\",\n                      \"productCategory\": \"textiles\",\n                      \"productType\": \"garment\"\n                    },\n                    \"manufacturer\": {\n                      \"name\": \"EcoTextile GmbH\",\n                      \"country\": \"DE\"\n                    },\n                    \"rawMaterialsAndProcess\": {\n                      \"materials\": [\n                        {\n                          \"materialType\": \"wool\",\n                          \"percentage\": 70,\n                          \"certified\": false,\n                          \"certification\": \"OEKO-TEX\"\n                        }\n                      ],\n                      \"sourceCountry\": \"PT\",\n                      \"harvestDate\": \"2025-09-19\"\n                    },\n                    \"distribution\": {\n                      \"warehouseLocation\": \"Bremerhaven\",\n                      \"packagingType\": \"recyclable\",\n                      \"storageConditions\": \"standard\"\n                    }\n                  }\n                },\n                {\n                  \"id\": \"GAR-ORD-BAT-SHIP-001-003-004-002\",\n                  \"orderId\": \"ORD-BAT-SHIP-001-003-004\",\n                  \"dpp\": {\n                    \"$schema\": \"https://schemas.dppmcp.com/textiles/garment.json\",\n                    \"dppMetadata\": {\n                      \"passportIdentifier\": \"https://id.gs1.org/01/09506000138738\",\n                      \"passportVersion\": \"1.0.0\",\n                      \"issuedDate\": \"2026-01-22\",\n                      \"garmentId\": \"GAR-ORD-BAT-SHIP-001-003-004-002\",\n                      \"orderId\": \"ORD-BAT-SHIP-001-003-004\"\n                    },\n                    \"productIdentification\": {\n                      \"productName\": \"Wool Sweater\",\n                      \"productCategory\": \"textiles\",\n                      \"productType\": \"garment\"\n                    },\n                    \"manufacturer\": {\n                      \"name\": \"Mediterranean Apparel\",\n                      \"country\": \"ES\"\n                    },\n                    \"rawMaterialsAndProcess\": {\n                      \"materials\": [\n                        {\n                          \"materialType\": \"linen\",\n                          \"percentage\": 80,\n                          \"certified\": false,\n                          \"certification\": \"OEKO-TEX\"\n                        }\n                      ],\n                      \"sourceCountry\": \"IT\",\n                      \"harvestDate\": \"2025-08-15\"\n                    },\n                    \"distribution\": {\n                      \"warehouseLocation\": \"Bremerhaven\",\n                      \"packagingType\": \"biodegradable\",\n                      \"storageConditions\": \"standard\"\n                    }\n                  }\n                }\n              ]\n            }\n          ]\n        }\n      ],\n      \"routeSolver\": {\n        \"algorithm\": \"dijkstra\",\n        \"solverVersion\": \"2.1.0\",\n        \"computedAt\": \"2025-01-22T09:15:00.000Z\",\n        \"optimizationCriteria\": [\n          \"cost\",\n          \"time\",\n          \"reliability\"\n        ]\n      },\n      \"selectedRoute\": {\n        \"routeId\": \"ROUTE-001-A\",\n        \"chosen\": true,\n        \"chosenBy\": \"dijkstra_solver\",\n        \"path\": [\n          \"Valencia\",\n          \"Barcelona\",\n          \"Marseille\",\n          \"Lyon\",\n          \"Strasbourg\",\n          \"Frankfurt\",\n          \"Bremerhaven\"\n        ],\n        \"totalDistanceKm\": 2180,\n        \"estimatedTimeHours\": 72,\n        \"estimatedCostEur\": 4500,\n        \"reliabilityScore\": 0.92,\n        \"dijkstraScore\": 0.87,\n        \"transportModes\": [\n          \"truck\",\n          \"rail\",\n          \"truck\"\n        ],\n        \"mainPorts\": [\n          \"Valencia Port\",\n          \"Bremerhaven Port\"\n        ],\n        \"riskFactors\": {\n          \"weatherRisk\": \"low\",\n          \"congestionRisk\": \"medium\",\n          \"borderDelayRisk\": \"low\"\n        }\n      },\n      \"alternativeRoutes\": [\n        {\n          \"routeId\": \"ROUTE-001-B\",\n          \"chosen\": false,\n          \"path\": [\n            \"Valencia\",\n            \"Zaragoza\",\n            \"Bilbao\",\n            \"Bordeaux\",\n            \"Paris\",\n            \"Brussels\",\n            \"Rotterdam\",\n            \"Bremerhaven\"\n          ],\n          \"totalDistanceKm\": 2450,\n          \"estimatedTimeHours\": 84,\n          \"estimatedCostEur\": 5200,\n          \"reliabilityScore\": 0.88,\n          \"dijkstraScore\": 0.72,\n          \"transportModes\": [\n            \"truck\",\n            \"rail\",\n            \"ferry\"\n          ],\n          \"mainPorts\": [\n            \"Valencia Port\",\n            \"Rotterdam Port\",\n            \"Bremerhaven Port\"\n          ],\n          \"riskFactors\": {\n            \"weatherRisk\": \"medium\",\n            \"congestionRisk\": \"high\",\n            \"borderDelayRisk\": \"low\"\n          },\n          \"rejectionReason\": \"Higher cost and longer transit time\"\n        },\n        {\n          \"routeId\": \"ROUTE-001-C\",\n          \"chosen\": false,\n          \"path\": [\n            \"Valencia\",\n            \"Gibraltar\",\n            \"Lisbon\",\n            \"Le Havre\",\n            \"Amsterdam\",\n            \"Bremerhaven\"\n          ],\n          \"totalDistanceKm\": 3100,\n          \"estimatedTimeHours\": 120,\n          \"estimatedCostEur\": 3800,\n          \"reliabilityScore\": 0.78,\n          \"dijkstraScore\": 0.65,\n          \"transportModes\": [\n            \"sea\",\n            \"rail\"\n          ],\n          \"mainPorts\": [\n            \"Valencia Port\",\n            \"Gibraltar Port\",\n            \"Le Havre Port\",\n            \"Bremerhaven Port\"\n          ],\n          \"riskFactors\": {\n            \"weatherRisk\": \"high\",\n            \"congestionRisk\": \"low\",\n            \"borderDelayRisk\": \"medium\"\n          },\n          \"rejectionReason\": \"Atlantic weather risk and longer transit time\"\n        },\n        {\n          \"routeId\": \"ROUTE-001-D\",\n          \"chosen\": false,\n          \"path\": [\n            \"Valencia\",\n            \"Genoa\",\n            \"Milan\",\n            \"Zurich\",\n            \"Stuttgart\",\n            \"Bremerhaven\"\n          ],\n          \"totalDistanceKm\": 2050,\n          \"estimatedTimeHours\": 68,\n          \"estimatedCostEur\": 5800,\n          \"reliabilityScore\": 0.95,\n          \"dijkstraScore\": 0.79,\n          \"transportModes\": [\n            \"sea\",\n            \"rail\",\n            \"truck\"\n          ],\n          \"mainPorts\": [\n            \"Valencia Port\",\n            \"Genoa Port\",\n            \"Bremerhaven Port\"\n          ],\n          \"riskFactors\": {\n            \"weatherRisk\": \"medium\",\n            \"congestionRisk\": \"medium\",\n            \"borderDelayRisk\": \"high\"\n          },\n          \"rejectionReason\": \"Alpine crossing delays and higher cost\"\n        }\n      ]\n    }\n  ]\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -4928,
+        20560
+      ],
+      "id": "eb093aa3-d5ca-4ea7-b225-c6c3b615bf5f",
+      "name": "Order Data1",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const ports = [\n  { city: \"Algeciras\", lat: 36.1408, lon: -5.4562 },\n  { city: \"Antwerp\", lat: 51.2213, lon: 4.4051 },\n  { city: \"Barcelona\", lat: 41.3894, lon: 2.1686 },\n  { city: \"Bremerhaven\", lat: 53.5396, lon: 8.5809 },\n  { city: \"Dunkirk\", lat: 51.0344, lon: 2.377 },\n  { city: \"Felixstowe\", lat: 51.9636, lon: 1.351 },\n  { city: \"Genoa\", lat: 44.4056, lon: 8.9463 },\n  { city: \"Gioia Tauro\", lat: 38.4247, lon: 15.901 },\n  { city: \"Hamburg\", lat: 53.5461, lon: 9.9661 },\n  { city: \"Le Havre\", lat: 49.4939, lon: 0.1079 },\n  { city: \"Marseille\", lat: 43.2965, lon: 5.3698 },\n  { city: \"Piraeus\", lat: 37.9429, lon: 23.6469 },\n  { city: \"Rotterdam\", lat: 51.9496, lon: 4.1383 },\n  { city: \"Valencia\", lat: 39.4699, lon: -0.3763 }\n];\n\nfunction distance(a, b) {\n  return Math.abs(a.lat - b.lat) + Math.abs(a.lon - b.lon);\n}\n\n// initialize aggregation buckets\nconst cities = Object.fromEntries(\n  ports.map(p => [\n    p.city,\n    {\n      city: p.city,\n      latitude: p.lat,\n      longitude: p.lon,\n      precipitation_mm: 0,\n      weather_codes: [],\n      risk_levels: [],\n      daily_units: null\n    }\n  ])\n);\n\n\n// assign forecast items to nearest city\nfor (const item of $input.all()) {\n  const lat = item.json.latitude;\n  const lon = item.json.longitude;\n\n  let closest = null;\n  let best = Infinity;\n\n  for (const p of ports) {\n    const d = distance({ lat, lon }, p);\n    if (d < best) {\n      best = d;\n      closest = p.city;\n    }\n  }\n\n  if (!closest) continue;\n\n  cities[closest].precipitation_mm += item.json.derived?.precipitation_mm ?? 0;\n  cities[closest].weather_codes.push(item.json.derived?.weather_code);\n  cities[closest].risk_levels.push(item.json.derived?.risk);\n}\n\n// finalize output (one row per city)\nreturn Object.values(cities).map(c => ({\n  json: {\n    city: c.city,\n    latitude: c.latitude,\n    longitude: c.longitude,\n    precipitation_mm: Number(c.precipitation_mm.toFixed(1)),\n    max_risk: c.risk_levels.includes(\"HIGH\")\n      ? \"HIGH\"\n      : c.risk_levels.includes(\"MEDIUM\")\n      ? \"MEDIUM\"\n      : \"LOW\",\n    weather_codes: [...new Set(c.weather_codes)].join(\", \")\n  }\n}));\n\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2080,
+        21296
+      ],
+      "id": "73144ad8-fec4-4bc2-be28-4bf430f057c8",
+      "name": "add cities"
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "https://docs.google.com/spreadsheets/d/1cEW_gLGy3h4RVbkBGpgxwKNr7PRKH0WkB3s9OfVQRUE/edit?gid=0#gid=0",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1cEW_gLGy3h4RVbkBGpgxwKNr7PRKH0WkB3s9OfVQRUE/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [
+            "shipments"
+          ],
+          "schema": [
+            {
+              "id": "shipments",
+              "displayName": "shipments",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "schemaVersion",
+              "displayName": "schemaVersion",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "description",
+              "displayName": "description",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "nodes",
+              "displayName": "nodes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "edges",
+              "displayName": "edges",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -4048,
+        20784
+      ],
+      "id": "d790daa5-0638-4e02-92c4-7300f5a886ce",
+      "name": "Append or update row in sheet",
+      "credentials": {
+        "googleApi": {
+          "id": "I7oMVxO4FHokfNTn",
+          "name": "Google Service Account account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Input: one batch object\n// Output: one item per garment with batch context\n\nconst batch = $json;\nconst items = [];\n\nfor (const order of batch.orders || []) {\n  for (const garment of order.garments || []) {\n    if (!garment.dpp) continue;\n\n    items.push({\n      json: {\n        batchId: batch.batchId,\n        shipmentId: batch.shipmentId,\n        origin: batch.origin,\n        destination: batch.destination,\n\n        orderId: garment.orderId,\n        garmentId: garment.id,\n\n        dpp: garment.dpp\n      }\n    });\n  }\n}\n\nreturn items;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2176,
+        20608
+      ],
+      "id": "bf8641fc-9a3c-49a4-b867-725d12d4c26b",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "nodes",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        -2864,
+        21104
+      ],
+      "id": "e6dc1a86-761f-4b41-8a74-cf1e22e8aff4",
+      "name": "Split Out"
+    },
+    {
+      "parameters": {
+        "jsCode": "const output = [];\n\nfor (const item of $input.all()) {\n  const json = item.json ?? {};\n\n  const lat = json.latitude;\n  const lon = json.longitude;\n  if (lat == null || lon == null) continue;\n\n  const daily = json.daily;\n  if (!daily) {\n    // still pass through the full item\n    output.push({ json });\n    continue;\n  }\n\n  const precipitation = daily.precipitation_sum?.[0] ?? 0;\n  const weatherCode = daily.weather_code?.[0];\n\n  let risk = 'LOW';\n  if (precipitation > 20) risk = 'HIGH';\n  else if (precipitation > 5) risk = 'MEDIUM';\n\n  // 🔑 IMPORTANT: spread original payload\n  output.push({\n    json: {\n      ...json,\n      derived: {\n        precipitation_mm: precipitation,\n        weather_code: weatherCode,\n        risk\n      }\n    }\n  });\n}\n\nreturn output;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2416,
+        21104
+      ],
+      "id": "54697529-94a6-4cf8-baef-0b413631c4e6",
+      "name": "Parse Weather & Assess Risk"
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{\n  json: {\n    cities: $input.all().map(i => i.json)\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1856,
+        21296
+      ],
+      "id": "3dcdc9b0-1f1b-4a8f-8008-934fb8d625a5",
+      "name": "map input for agent"
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{\n  json: {\n    batchId: $input.all().map(i => i.json)\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1952,
+        20608
+      ],
+      "id": "a2118e4d-886a-4cbd-9e43-3f7825d7f9c4",
+      "name": "Code in JavaScript2"
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "https://docs.google.com/spreadsheets/d/1E61JeUXgHOuqIBooVvREhQFLv_BHktiz1QaGkd-vUrA/edit?usp=sharing",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1E61JeUXgHOuqIBooVvREhQFLv_BHktiz1QaGkd-vUrA/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "batchId",
+              "displayName": "batchId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "shipmentId",
+              "displayName": "shipmentId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "origin",
+              "displayName": "origin",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "destination",
+              "displayName": "destination",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "orderId",
+              "displayName": "orderId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "garmentId",
+              "displayName": "garmentId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "dpp",
+              "displayName": "dpp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -2000,
+        20816
+      ],
+      "id": "08f01fc7-df21-4ca6-b92f-5b05eee3eab4",
+      "name": "Append or update row in sheet1",
+      "credentials": {
+        "googleApi": {
+          "id": "I7oMVxO4FHokfNTn",
+          "name": "Google Service Account account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "https://docs.google.com/spreadsheets/d/1vFkkY7zy5W79XNL2b0iLRm_Q-6k-eRAW7cJp_0-KpjA/edit?usp=sharing",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "forecast",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1vFkkY7zy5W79XNL2b0iLRm_Q-6k-eRAW7cJp_0-KpjA/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "city",
+              "displayName": "city",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "latitude",
+              "displayName": "latitude",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "longitude",
+              "displayName": "longitude",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "precipitation_mm",
+              "displayName": "precipitation_mm",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "max_risk",
+              "displayName": "max_risk",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "weather_codes",
+              "displayName": "weather_codes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "36.1875",
+              "displayName": "36.1875",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "-5.4375",
+              "displayName": "-5.4375",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "0.09632110596",
+              "displayName": "0.09632110596",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "3600",
+              "displayName": "3600",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Europe/Berlin",
+              "displayName": "Europe/Berlin",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "GMT+1",
+              "displayName": "GMT+1",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "23",
+              "displayName": "23",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "{\"time\":\"iso8601\",\"weather_code\":\"wmo code\",\"precipitation_sum\":\"mm\"}",
+              "displayName": "{\"time\":\"iso8601\",\"weather_code\":\"wmo code\",\"precipitation_sum\":\"mm\"}",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "{\"time\":[\"2026-01-22\",\"2026-01-23\",\"2026-01-24\",\"2026-01-25\",\"2026-01-26\",\"2026-01-27\",\"2026-01-28\"],\"weather_code\":[61,80,3,63,61,80,80],\"precipitation_sum\":[1.4,27.3,0.1,31.4,15.7,50.75,37.8]}",
+              "displayName": "{\"time\":[\"2026-01-22\",\"2026-01-23\",\"2026-01-24\",\"2026-01-25\",\"2026-01-26\",\"2026-01-27\",\"2026-01-28\"],\"weather_code\":[61,80,3,63,61,80,80],\"precipitation_sum\":[1.4,27.3,0.1,31.4,15.7,50.75,37.8]}",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "city",
+              "displayName": "city",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "latitude",
+              "displayName": "latitude",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "longitude",
+              "displayName": "longitude",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "precipitation_mm",
+              "displayName": "precipitation_mm",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "max_risk",
+              "displayName": "max_risk",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "weather_codes",
+              "displayName": "weather_codes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -1856,
+        21456
+      ],
+      "id": "898b3d98-177f-4ba3-9a3b-c75a70366053",
+      "name": "Append or update row in sheet2",
+      "credentials": {
+        "googleApi": {
+          "id": "I7oMVxO4FHokfNTn",
+          "name": "Google Service Account account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## Batch Compliane Agent",
+        "height": 1056,
+        "width": 2208
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -2880,
+        19984
+      ],
+      "typeVersion": 1,
+      "id": "cdb837cd-7f00-485f-8f49-1a7ebf6fcfd9",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "## Route Compliance Agent",
+        "height": 1280,
+        "width": 2208
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -2880,
+        21056
+      ],
+      "typeVersion": 1,
+      "id": "599a4894-7e20-4bc3-bcff-a09d725ae25c",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{\n  json: {\n    forecast: $input.all().map(i => i.json)\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1856,
+        21104
+      ],
+      "id": "3dd658d1-0e62-44e3-89cc-340110dc25f7",
+      "name": "map input for agent1"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineAll",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        -1568,
+        21104
+      ],
+      "id": "9fe06a72-b96a-4c80-9969-5401a865d22c",
+      "name": "Merge1"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineAll",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        -496,
+        20896
+      ],
+      "id": "0ecac67e-ea60-42a6-aa41-ca744b2fb840",
+      "name": "Merge2"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-5-nano",
+          "mode": "list"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        -272,
+        21072
+      ],
+      "id": "2b53ac4d-1a41-4e9f-8bb2-810482553154",
+      "name": "OpenAI Chat Model2",
+      "credentials": {
+        "openAiApi": {
+          "id": "jz9YNPaGJ7Og2AMM",
+          "name": "OpenAi Dimitris"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## Decision Agent\n",
+        "height": 1168,
+        "width": 630
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -640,
+        20480
+      ],
+      "id": "737c7dc5-54e5-477e-b523-415519ad789e",
+      "name": "Sticky Note2"
+    },
+    {
+      "parameters": {
+        "jsCode": "const decisionRaw = JSON.parse($input.first().json.output);\n\nconst shipmentFlagged =\n  decisionRaw.decision === \"BLOCK\" || decisionRaw.decision === \"DELAY\";\n\nreturn [\n  {\n    json: {\n      shipmentFlagged,\n      decision: decisionRaw.decision,\n      confidence: decisionRaw.confidence,\n      reasons: decisionRaw.reasons,\n      requiredActions: decisionRaw.requiredActions\n    }\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        96,
+        20896
+      ],
+      "id": "d08a28b4-059f-4341-b2da-3cbf5402bf24",
+      "name": "Code in JavaScript4"
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "https://docs.google.com/spreadsheets/d/1Y6QYBWDM75xF9VZbgGTNeSFNec1cPJqRdffBzm9sTDs/edit?usp=sharing",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Y6QYBWDM75xF9VZbgGTNeSFNec1cPJqRdffBzm9sTDs/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "shipmentFlagged",
+              "displayName": "shipmentFlagged",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "decision",
+              "displayName": "decision",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "confidence",
+              "displayName": "confidence",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "reasons",
+              "displayName": "reasons",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "requiredActions",
+              "displayName": "requiredActions",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        352,
+        21072
+      ],
+      "id": "5e4d7c21-041a-45d2-bf07-7e2d94d7f9c7",
+      "name": "Append or update row in sheet3",
+      "credentials": {
+        "googleApi": {
+          "id": "I7oMVxO4FHokfNTn",
+          "name": "Google Service Account account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "return [\n  {\n    json: {\n      requiresHumanReview: $json.shipmentFlagged === true,\n      decision: $json.decision,\n      confidence: $json.confidence,\n      reasons: $json.reasons,\n      requiredActions: $json.requiredActions\n    }\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        352,
+        20848
+      ],
+      "id": "e3d75833-01e2-4811-9725-56f7361a7dff",
+      "name": "Code in JavaScript5"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "7b2ef4ff-0b6a-4257-a0fb-c77e235da117",
+              "leftValue": "={{ $json.requiresHumanReview === true }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        560,
+        20848
+      ],
+      "id": "df7b4acb-c4a6-417b-8137-c8f2baf250f0",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "content": "## Preprocessing\n",
+        "height": 1152,
+        "width": 1200
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -5008,
+        20496
+      ],
+      "id": "68305752-090d-479b-9710-1cf1ade25e32",
+      "name": "Sticky Note3"
+    },
+    {
+      "parameters": {
+        "content": "## Missing Data Check\n",
+        "height": 1168,
+        "width": 848
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -3776,
+        20480
+      ],
+      "id": "a816f384-2338-4866-b5df-5bdef917cd4b",
+      "name": "Sticky Note4"
+    },
+    {
+      "parameters": {
+        "content": "## safe outputs for further evaluation by human\n",
+        "height": 1168,
+        "width": 1622
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        16,
+        20480
+      ],
+      "id": "d4e4cd5e-c3c3-4e8d-8a10-ccba9ea07f09",
+      "name": "Sticky Note5"
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "https://docs.google.com/spreadsheets/d/1GTmUI60rUasN0Muw8TryvHFsprsSxLS8NGp6AbDdOTU/edit?usp=sharing",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1GTmUI60rUasN0Muw8TryvHFsprsSxLS8NGp6AbDdOTU/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [
+            "output"
+          ],
+          "schema": [
+            {
+              "id": "output",
+              "displayName": "output",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -832,
+        20512
+      ],
+      "id": "a85f995e-18ac-4931-b5a9-827e3bb8343c",
+      "name": "Append or update row in sheet4",
+      "credentials": {
+        "googleApi": {
+          "id": "I7oMVxO4FHokfNTn",
+          "name": "Google Service Account account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "https://docs.google.com/spreadsheets/d/1yiJVj6Ml2Ii3JV5krhtVDFNNUrApEImOl6FiRg5Bp6A/edit?usp=sharing",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1yiJVj6Ml2Ii3JV5krhtVDFNNUrApEImOl6FiRg5Bp6A/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [
+            "output"
+          ],
+          "schema": [
+            {
+              "id": "output",
+              "displayName": "output",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -816,
+        21312
+      ],
+      "id": "2f0a67a0-eedb-4357-95c4-7d0bbcdfb5cb",
+      "name": "Append or update row in sheet5",
+      "credentials": {
+        "googleApi": {
+          "id": "I7oMVxO4FHokfNTn",
+          "name": "Google Service Account account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// --- Dijkstra & Helper Functions ---\nconst mathInf = Number.POSITIVE_INFINITY;\n\nfunction buildGraph(edges) {\n  const g = {};\n  if (!edges) return g;\n  for (const e of edges) {\n    const from = e[\"from\"];\n    const to = e[\"to\"];\n    if (!g[from]) g[from] = {};\n    g[from][to] = {\n      distanceKm: Number(e[\"distanceKm\"]),\n      timeHours: Number(e[\"timeHours\"]),\n      costEUR: Number(e[\"costEUR\"]),\n    };\n  }\n  return g;\n}\n\nclass MinHeap {\n  constructor() { this.a = []; }\n  size() { return this.a.length; }\n  push(item) {\n    this.a.push(item);\n    this._siftUp(this.a.length - 1);\n  }\n  pop() {\n    if (this.a.length === 0) return null;\n    const top = this.a[0];\n    const last = this.a.pop();\n    if (this.a.length > 0) {\n      this.a[0] = last;\n      this._siftDown(0);\n    }\n    return top;\n  }\n  _siftUp(i) {\n    while (i > 0) {\n      const p = Math.floor((i - 1) / 2);\n      if (this.a[p][0] <= this.a[i][0]) break;\n      [this.a[p], this.a[i]] = [this.a[i], this.a[p]];\n      i = p;\n    }\n  }\n  _siftDown(i) {\n    const n = this.a.length;\n    while (true) {\n      let smallest = i;\n      const l = 2 * i + 1;\n      const r = 2 * i + 2;\n      if (l < n && this.a[l][0] < this.a[smallest][0]) smallest = l;\n      if (r < n && this.a[r][0] < this.a[smallest][0]) smallest = r;\n      if (smallest === i) break;\n      [this.a[i], this.a[smallest]] = [this.a[smallest], this.a[i]];\n      i = smallest;\n    }\n  }\n}\n\nfunction dijkstra(graph, origin, destination, weightKey) {\n  const pq = new MinHeap();\n  pq.push([0.0, origin, [origin]]);\n  const visited = new Set();\n  while (pq.size() > 0) {\n    const [cost, node, path] = pq.pop();\n    if (node === destination) return [cost, path];\n    if (visited.has(node)) continue;\n    visited.add(node);\n    const nbrs = graph[node] || {};\n    for (const [nxt, w] of Object.entries(nbrs)) {\n      pq.push([cost + Number(w[weightKey]), nxt, path.concat([nxt])]);\n    }\n  }\n  return [mathInf, []];\n}\n\nfunction sumAlongPath(graph, path) {\n  let dist = 0.0, time = 0.0, cost = 0.0;\n  for (let i = 0; i < path.length - 1; i++) {\n    const w = graph[path[i]][path[i+1]];\n    dist += w.distanceKm;\n    time += w.timeHours;\n    cost += w.costEUR;\n  }\n  return [dist, time, cost];\n}\n\n// --- Main n8n Logic ---\n\n// Access the merged input item\nconst input = $input.first().json;\n\n// Extract shipments and network from the merged object\nconst shipmentsList = input.shipments || [];\n// Access edges from the network data part of the merge\nconst edges = input.edges || []; \nconst graph = buildGraph(edges);\n\nconst results = shipmentsList.map(sh => {\n  const origin = sh.origin;\n  const destination = sh.destination;\n  const priority = sh.priority;\n\n  const prNorm = ((priority ?? \"low\") + \"\").toLowerCase();\n  const weightKey = (prNorm === \"express\" || prNorm === \"high\") ? \"timeHours\" : \"costEUR\";\n\n  const [totalWeight, path] = dijkstra(graph, origin, destination, weightKey);\n\n  // Initialize structure\n  let distanceKm = 0, timeHours = 0, costEUR = 0;\n  \n  if (path && path.length > 1) {\n    const totals = sumAlongPath(graph, path);\n    distanceKm = Number(totals[0].toFixed(1));\n    timeHours = Number(totals[1].toFixed(1));\n    costEUR = Number(totals[2].toFixed(1));\n  }\n\n  return {\n    shipmentId: sh.shipmentId,\n    origin,\n    destination,\n    route: path,\n    distanceKm,\n    timeHours,\n    costEUR,\n    priority,\n    logisticsNetwork: {\n      edges: path.length > 1 ? [{\n        from: origin,\n        to: destination,\n        timeHours,\n        costEUR\n      }] : []\n    },\n    batches: sh.batches || []\n  };\n});\n\nreturn {\n  json: {\n    shipments: results\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -4048,
+        21040
+      ],
+      "id": "5a1dd401-1651-4c97-bb0f-ad5df097e229",
+      "name": "Dijkstra Solver"
+    },
+    {
+      "parameters": {
+        "model": "text-embedding-ada-002",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        -1568,
+        21824
+      ],
+      "id": "ba9ca0b7-3985-42f9-9fc7-2057763a90e0",
+      "name": "Embeddings OpenAI",
+      "credentials": {
+        "openAiApi": {
+          "id": "jz9YNPaGJ7Og2AMM",
+          "name": "OpenAi Dimitris"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "dataType": "binary",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.documentDefaultDataLoader",
+      "typeVersion": 1.1,
+      "position": [
+        -1008,
+        21840
+      ],
+      "id": "c9c2496e-cab4-4fae-b642-7c7edfcf69b7",
+      "name": "Default Data Loader"
+    },
+    {
+      "parameters": {
+        "mode": "insert",
+        "memoryKey": {
+          "__rl": true,
+          "value": "vector_store_key",
+          "mode": "list",
+          "cachedResultName": "vector_store_key"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreInMemory",
+      "typeVersion": 1.2,
+      "position": [
+        -1136,
+        21616
+      ],
+      "id": "0b43de9d-a384-4675-9ecf-4afe22e416f3",
+      "name": "Insert Data to Store"
+    },
+    {
+      "parameters": {
+        "content": "### consult RAG for port information\n",
+        "height": 752,
+        "width": 736,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -1600,
+        21472
+      ],
+      "typeVersion": 1,
+      "id": "b2c67e1e-edc6-4b31-9a4b-f209d154eaa4",
+      "name": "Sticky Note8"
+    },
+    {
+      "parameters": {
+        "content": "## How does it work?\ninput document in “Upload your file here”, and run “Insert Data to store”. The route compliance agent will call the query data tool itself when it is run. Prompt to the agent to use the tool.",
+        "height": 128,
+        "width": 448
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -1328,
+        22064
+      ],
+      "id": "19e9b62f-25e1-41b6-a0a8-30e8e4added3",
+      "name": "Sticky Note7"
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "operation": "download",
+        "fileId": {
+          "__rl": true,
+          "value": "https://drive.google.com/file/d/1c349qN7dhkRAzVzsquU2Bho2l-QolkuJ/view?usp=sharing",
+          "mode": "url",
+          "__regex": "https:\\/\\/(?:drive|docs)\\.google\\.com(?:\\/.*|)\\/d\\/([0-9a-zA-Z\\-_]+)(?:\\/.*|)"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        -1280,
+        21616
+      ],
+      "id": "3b309309-ac8e-4c8d-9acf-feb414bfc62c",
+      "name": "Download file",
+      "credentials": {
+        "googleApi": {
+          "id": "I7oMVxO4FHokfNTn",
+          "name": "Google Service Account account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "toolName": "Route_Knowledge",
+        "toolDescription": "Use this tool to retrieve authoritative EU port, maritime, and transport\nregulatory information. This tool MUST be used whenever port operations,\nport access, routing constraints, or compliance considerations are assessed.\n",
+        "memoryKey": {
+          "__rl": true,
+          "mode": "list",
+          "value": "vector_store_key"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreInMemory",
+      "typeVersion": 1.2,
+      "position": [
+        -1568,
+        21552
+      ],
+      "id": "41ed3aa6-e32a-4f34-8e01-a9927aac9224",
+      "name": "Route_Knowledge"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-5-nano",
+          "mode": "list",
+          "cachedResultName": "gpt-5-nano"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        -1472,
+        21264
+      ],
+      "id": "2e73ce08-e113-4a71-8699-1ed5313fd2e3",
+      "name": "OpenAI Chat Model1",
+      "credentials": {
+        "openAiApi": {
+          "id": "jz9YNPaGJ7Og2AMM",
+          "name": "OpenAi Dimitris"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-5-nano",
+          "mode": "list",
+          "cachedResultName": "gpt-5-nano"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        -1344,
+        20832
+      ],
+      "id": "0148fbe4-39a9-476b-ae68-86ff7630342f",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "jz9YNPaGJ7Og2AMM",
+          "name": "OpenAi Dimitris"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "text-embedding-ada-002",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        -1616,
+        20352
+      ],
+      "id": "8fb208b9-3bfa-4fbe-a1f6-9877fbe6ec35",
+      "name": "Embeddings OpenAI1",
+      "credentials": {
+        "openAiApi": {
+          "id": "jz9YNPaGJ7Og2AMM",
+          "name": "OpenAi Dimitris"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "dataType": "binary",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.documentDefaultDataLoader",
+      "typeVersion": 1.1,
+      "position": [
+        -1088,
+        20336
+      ],
+      "id": "93bd94df-159d-403c-902b-daef99daee2f",
+      "name": "Default Data Loader1"
+    },
+    {
+      "parameters": {
+        "mode": "insert",
+        "memoryKey": {
+          "__rl": true,
+          "value": "vector_store_key",
+          "mode": "list",
+          "cachedResultName": "vector_store_key"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreInMemory",
+      "typeVersion": 1.2,
+      "position": [
+        -1424,
+        20112
+      ],
+      "id": "243305ca-cff5-45c2-8978-352c7ed5f21b",
+      "name": "Insert Data to Store1"
+    },
+    {
+      "parameters": {
+        "content": "### consult RAG for textiles EU legislation document\n",
+        "height": 464,
+        "width": 736,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -1680,
+        20048
+      ],
+      "typeVersion": 1,
+      "id": "cca1fa60-a35b-4724-8d60-cac56b873266",
+      "name": "Sticky Note9"
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "operation": "download",
+        "fileId": {
+          "__rl": true,
+          "value": "https://drive.google.com/file/d/10tYRxUjXiQIGTW9ic-zoYNtqudSjFTEZ/view?usp=sharing",
+          "mode": "url"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        -1616,
+        20112
+      ],
+      "id": "b5d51e27-35a0-43e0-aa5a-0fe8562285b6",
+      "name": "Download file1",
+      "credentials": {
+        "googleApi": {
+          "id": "I7oMVxO4FHokfNTn",
+          "name": "Google Service Account account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "toolName": "DPP_knowledge",
+        "toolDescription": "Call this tool to validate batch compliance against the 'EU Strategy for Sustainable and Circular Textiles.' You MUST use this tool to determine if a batch should be flagged for non-compliance.",
+        "memoryKey": {
+          "__rl": true,
+          "mode": "list",
+          "value": "vector_store_key"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreInMemory",
+      "typeVersion": 1.2,
+      "position": [
+        -1424,
+        20336
+      ],
+      "id": "356864e5-2610-4b1e-b819-dea26e0b71fa",
+      "name": "DPP_knowledge"
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "{\n  \"shipments\": [\n    {\n      \"shipmentId\": \"SHIP-001\",\n      \"origin\": \"Valencia\",\n      \"destination\": \"Bremerhaven\",\n      \"priority\": \"Medium\",\n      \"batches\": [\n        {\n          \"batchId\": \"BAT-SHIP-001-001\",\n          \"shipmentId\": \"SHIP-001\",\n          \"timestamp\": \"2025-12-14T14:43:35.221921\",\n          \"orders\": [\n            {\n              \"id\": \"ORD-BAT-SHIP-001-001-001\",\n              \"batchId\": \"BAT-SHIP-001-001\",\n              \"brand\": \"Casual Comfort\",\n              \"quantity\": 2,\n              \"garments\": [\n                {\n                  \"id\": \"GAR-001\",\n                  \"orderId\": \"ORD-BAT-SHIP-001-001-001\",\n                  \"dpp\": {\n                    \"$schema\": \"https://schemas.dppmcp.com/textiles/garment.json\",\n                    \"dppMetadata\": {\n                      \"passportIdentifier\": \"https://id.gs1.org/01/09506000134039\",\n                      \"passportVersion\": \"1.0.0\",\n                      \"issuedDate\": \"2026-01-22\",\n                      \"garmentId\": \"GAR-001\",\n                      \"orderId\": \"ORD-BAT-SHIP-001-001-001\"\n                    },\n                    \"productIdentification\": {\n                      \"productName\": \"Cotton T-Shirt\",\n                      \"productCategory\": \"textiles\",\n                      \"productType\": \"garment\"\n                    },\n                    \"manufacturer\": {\n                      \"name\": \"Green Threads Ltd\",\n                      \"country\": \"GB\"\n                    },\n                    \"rawMaterialsAndProcess\": {\n                      \"materials\": [\n                        {\n                          \"materialType\": \"organic_cotton\",\n                          \"percentage\": 100,\n                          \"certified\": true,\n                          \"certification\": \"GOTS\"\n                        }\n                      ],\n                      \"sourceCountry\": \"IT\",\n                      \"harvestDate\": \"2025-09-09\"\n                    },\n                    \"distribution\": {\n                      \"warehouseLocation\": \"Bremerhaven\",\n                      \"packagingType\": \"biodegradable\",\n                      \"storageConditions\": \"standard\"\n                    }\n                  }\n                }\n              ]\n            }\n          ]\n        },\n        {\n          \"batchId\": \"BAT-SHIP-001-002\",\n          \"shipmentId\": \"SHIP-001\",\n          \"timestamp\": \"2025-12-14T16:43:35.221921\",\n          \"orders\": [\n            {\n              \"id\": \"ORD-BAT-SHIP-001-002-001\",\n              \"batchId\": \"BAT-SHIP-001-002\",\n              \"brand\": \"EcoWear Ltd\",\n              \"quantity\": 1,\n              \"garments\": [\n                {\n                  \"id\": \"GAR-002\",\n                  \"orderId\": \"ORD-BAT-SHIP-001-002-001\",\n                  \"dpp\": {\n                    \"$schema\": \"https://schemas.dppmcp.com/textiles/garment.json\",\n                    \"dppMetadata\": {\n                      \"passportIdentifier\": \"https://id.gs1.org/01/09506000135827\",\n                      \"passportVersion\": \"1.0.0\",\n                      \"issuedDate\": \"2026-01-22\",\n                      \"garmentId\": \"GAR-002\",\n                      \"orderId\": \"ORD-BAT-SHIP-001-002-001\"\n                    },\n                    \"productIdentification\": {\n                      \"productName\": \"Wool Sweater\",\n                      \"productCategory\": \"textiles\",\n                      \"productType\": \"garment\"\n                    },\n                    \"manufacturer\": {\n                      \"name\": \"Sustainable Wear BV\",\n                      \"country\": \"NL\"\n                    },\n                    \"rawMaterialsAndProcess\": {\n                      \"materials\": [\n                        {\n                          \"materialType\": \"wool\",\n                          \"percentage\": 100,\n                          \"certified\": true,\n                          \"certification\": \"OEKO-TEX\"\n                        }\n                      ],\n                      \"sourceCountry\": \"DE\",\n                      \"harvestDate\": \"2025-08-20\"\n                    },\n                    \"distribution\": {\n                      \"warehouseLocation\": \"Bremerhaven\",\n                      \"packagingType\": \"recyclable\",\n                      \"storageConditions\": \"standard\"\n                    }\n                  }\n                }\n              ]\n            }\n          ]\n        },\n        {\n          \"batchId\": \"BAT-SHIP-001-003\",\n          \"shipmentId\": \"SHIP-001\",\n          \"timestamp\": \"2025-12-14T18:43:35.221921\",\n          \"orders\": [\n            {\n              \"id\": \"ORD-BAT-SHIP-001-003-001\",\n              \"batchId\": \"BAT-SHIP-001-003\",\n              \"brand\": \"Nordic Fashion\",\n              \"quantity\": 1,\n              \"garments\": [\n                {\n                  \"id\": \"GAR-003\",\n                  \"orderId\": \"ORD-BAT-SHIP-001-003-001\",\n                  \"dpp\": {\n                    \"$schema\": \"https://schemas.dppmcp.com/textiles/garment.json\",\n                    \"dppMetadata\": {\n                      \"passportIdentifier\": \"https://id.gs1.org/01/09506000132852\",\n                      \"passportVersion\": \"1.0.0\",\n                      \"issuedDate\": \"2026-01-22\",\n                      \"garmentId\": \"GAR-003\",\n                      \"orderId\": \"ORD-BAT-SHIP-001-003-001\"\n                    },\n                    \"productIdentification\": {\n                      \"productName\": \"Linen Blouse\",\n                      \"productCategory\": \"textiles\",\n                      \"productType\": \"garment\"\n                    },\n                    \"manufacturer\": {\n                      \"name\": \"Nordic Fashion AB\",\n                      \"country\": \"SE\"\n                    },\n                    \"rawMaterialsAndProcess\": {\n                      \"materials\": [\n                        {\n                          \"materialType\": \"linen\",\n                          \"percentage\": 100,\n                          \"certified\": true,\n                          \"certification\": \"OEKO-TEX\"\n                        }\n                      ],\n                      \"sourceCountry\": \"PT\",\n                      \"harvestDate\": \"2025-08-05\"\n                    },\n                    \"distribution\": {\n                      \"warehouseLocation\": \"Bremerhaven\",\n                      \"packagingType\": \"reusable\",\n                      \"storageConditions\": \"standard\"\n                    }\n                  }\n                }\n              ]\n            }\n          ]\n        }\n      ]\n    }\n  ]\n}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -4512,
+        20736
+      ],
+      "id": "230f624a-8f99-4609-b8d6-4abfdecaf53b",
+      "name": "CompliantData"
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "{\n  \"shipments\": [\n    {\n      \"shipmentId\": \"SHIP-001\",\n      \"origin\": \"Valencia\",\n      \"destination\": \"Bremerhaven\",\n      \"priority\": \"Medium\",\n      \"batches\": [\n        {\n          \"batchId\": \"BAT-SHIP-001-001\",\n          \"shipmentId\": \"SHIP-001\",\n          \"timestamp\": \"2025-12-14T14:43:35.221921\",\n          \"orders\": [\n            {\n              \"id\": \"ORD-BAT-SHIP-001-001-001\",\n              \"batchId\": \"BAT-SHIP-001-001\",\n              \"brand\": \"Casual Comfort\",\n              \"quantity\": 1,\n              \"garments\": [\n                {\n                  \"id\": \"GAR-101\",\n                  \"orderId\": \"ORD-BAT-SHIP-001-001-001\",\n                  \"dpp\": {\n                    \"$schema\": \"https://schemas.dppmcp.com/textiles/garment.json\",\n                    \"dppMetadata\": {\n                      \"passportIdentifier\": \"https://id.gs1.org/01/09506000134039\",\n                      \"passportVersion\": \"1.0.0\",\n                      \"issuedDate\": \"2026-01-22\",\n                      \"garmentId\": \"GAR-101\",\n                      \"orderId\": \"ORD-BAT-SHIP-001-001-001\"\n                    },\n                    \"productIdentification\": {\n                      \"productName\": \"Cotton T-Shirt\",\n                      \"productCategory\": \"textiles\",\n                      \"productType\": \"garment\"\n                    },\n                    \"manufacturer\": {\n                      \"name\": \"Green Threads Ltd\",\n                      \"country\": \"GB\"\n                    },\n                    \"rawMaterialsAndProcess\": {\n                      \"materials\": [\n                        {\n                          \"materialType\": \"cotton\",\n                          \"percentage\": 85,\n                          \"certified\": false,\n                          \"certification\": \"GOTS\"\n                        },\n                        {\n                          \"materialType\": \"azo_dyes\",\n                          \"percentage\": 5,\n                          \"certified\": false,\n                          \"certification\": null\n                        }\n                      ],\n                      \"chemicalTreatments\": [\n                        \"azo_dyes\",\n                        \"formaldehyde_resin\"\n                      ],\n                      \"sourceCountry\": \"CN\",\n                      \"harvestDate\": \"2025-09-09\"\n                    },\n                    \"distribution\": {\n                      \"warehouseLocation\": \"Bremerhaven\",\n                      \"packagingType\": \"biodegradable\",\n                      \"storageConditions\": \"standard\"\n                    }\n                  }\n                }\n              ]\n            }\n          ]\n        },\n        {\n          \"batchId\": \"BAT-SHIP-001-002\",\n          \"shipmentId\": \"SHIP-001\",\n          \"timestamp\": \"2025-12-14T16:43:35.221921\",\n          \"orders\": [\n            {\n              \"id\": \"ORD-BAT-SHIP-001-002-001\",\n              \"batchId\": \"BAT-SHIP-001-002\",\n              \"brand\": \"EcoWear Ltd\",\n              \"quantity\": 1,\n              \"garments\": [\n                {\n                  \"id\": \"GAR-002\",\n                  \"orderId\": \"ORD-BAT-SHIP-001-002-001\",\n                  \"dpp\": {\n                    \"$schema\": \"https://schemas.dppmcp.com/textiles/garment.json\",\n                    \"dppMetadata\": {\n                      \"passportIdentifier\": \"https://id.gs1.org/01/09506000135827\",\n                      \"passportVersion\": \"1.0.0\",\n                      \"issuedDate\": \"2026-01-22\",\n                      \"garmentId\": \"GAR-002\",\n                      \"orderId\": \"ORD-BAT-SHIP-001-002-001\"\n                    },\n                    \"productIdentification\": {\n                      \"productName\": \"Wool Sweater\",\n                      \"productCategory\": \"textiles\",\n                      \"productType\": \"garment\"\n                    },\n                    \"manufacturer\": {\n                      \"name\": \"Sustainable Wear BV\",\n                      \"country\": \"NL\"\n                    },\n                    \"rawMaterialsAndProcess\": {\n                      \"materials\": [\n                        {\n                          \"materialType\": \"wool\",\n                          \"percentage\": 100,\n                          \"certified\": true,\n                          \"certification\": \"OEKO-TEX\"\n                        }\n                      ],\n                      \"sourceCountry\": \"DE\",\n                      \"harvestDate\": \"2025-08-20\"\n                    },\n                    \"distribution\": {\n                      \"warehouseLocation\": \"Bremerhaven\",\n                      \"packagingType\": \"recyclable\",\n                      \"storageConditions\": \"standard\"\n                    }\n                  }\n                }\n              ]\n            }\n          ]\n        },\n        {\n          \"batchId\": \"BAT-SHIP-001-003\",\n          \"shipmentId\": \"SHIP-001\",\n          \"timestamp\": \"2025-12-14T18:43:35.221921\",\n          \"orders\": [\n            {\n              \"id\": \"ORD-BAT-SHIP-001-003-001\",\n              \"batchId\": \"BAT-SHIP-001-003\",\n              \"brand\": \"Urban Style\",\n              \"quantity\": 1,\n              \"garments\": [\n                {\n                  \"id\": \"GAR-103\",\n                  \"orderId\": \"ORD-BAT-SHIP-001-003-001\",\n                  \"dpp\": {\n                    \"$schema\": \"https://schemas.dppmcp.com/textiles/garment.json\",\n                    \"dppMetadata\": {\n                      \"passportIdentifier\": \"https://id.gs1.org/01/09506000132852\",\n                      \"passportVersion\": \"1.0.0\",\n                      \"issuedDate\": \"2026-01-22\",\n                      \"garmentId\": \"GAR-103\",\n                      \"orderId\": \"ORD-BAT-SHIP-001-003-001\"\n                    },\n                    \"productIdentification\": {\n                      \"productName\": \"Waterproof Jacket\",\n                      \"productCategory\": \"textiles\",\n                      \"productType\": \"garment\"\n                    },\n                    \"manufacturer\": {\n                      \"name\": \"Urban Style GmbH\",\n                      \"country\": \"DE\"\n                    },\n                    \"rawMaterialsAndProcess\": {\n                      \"materials\": [\n                        {\n                          \"materialType\": \"polyester\",\n                          \"percentage\": 70,\n                          \"certified\": false,\n                          \"certification\": null\n                        },\n                        {\n                          \"materialType\": \"polyvinyl_chloride\",\n                          \"percentage\": 20,\n                          \"certified\": false,\n                          \"certification\": null\n                        }\n                      ],\n                      \"chemicalTreatments\": [\n                        \"PFAS_water_repellent\",\n                        \"phthalates\",\n                        \"antimony_trioxide\"\n                      ],\n                      \"sourceCountry\": \"BD\",\n                      \"harvestDate\": \"2025-09-02\"\n                    },\n                    \"distribution\": {\n                      \"warehouseLocation\": \"Bremerhaven\",\n                      \"packagingType\": \"plastic\",\n                      \"storageConditions\": \"standard\"\n                    }\n                  }\n                }\n              ]\n            }\n          ]\n        }\n      ]\n    }\n  ]\n}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -4720,
+        20560
+      ],
+      "id": "088cd864-a9b1-42b4-bd98-d03ed2fe493f",
+      "name": "NonCompliantData",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\n  \"isFlagged\": true,\n  \"reason\": \"does not contain all required DPP information\",\n  \"includedBatches\": \"BatchId x\",\n  \"severity\": \"0.8\",\n  \"recommendations\": \"based on x, you should commit action y\"\n}\n"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        -1072,
+        20832
+      ],
+      "id": "372fbf97-20c3-4011-b9b2-ef26774bf130",
+      "name": "Structured Output Parser",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\n  \"isFlagged\": true,\n  \"reason\": \"severe weather conditions\",\n  \"includedCities\": \"City x\",\n  \"severity\": \"0.8\",\n  \"recommendations\": \"based on x, you should commit action y\"\n}\n"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        -1088,
+        21312
+      ],
+      "id": "034b47ac-97f8-434e-90b9-4a17595eec4f",
+      "name": "Structured Output Parser1",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"status\": \"queued\",\n  \"message\": \"Batch accepted for processing. Check dashboard history for results.\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        -4752,
+        21328
+      ],
+      "id": "5bed0daf-3142-42bc-a16b-2a87a8daeead",
+      "name": "Respond to Webhook"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "batch compliance agent": {
+      "main": [
+        [
+          {
+            "node": "Merge2",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Append or update row in sheet4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Complete": {
+      "main": [
+        [
+          {
+            "node": "Batch mapping",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Decision Agent1": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "DPP Missing Data Check": {
+      "main": [
+        [
+          {
+            "node": "If Complete",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Batch mapping": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate feedback": {
+      "main": [
+        [
+          {
+            "node": "Update sheet: FLAGGED",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Shipment authorized": {
+      "main": [
+        [
+          {
+            "node": "Update sheet: GOOD",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update sheet: FLAGGED": {
+      "main": [
+        []
+      ]
+    },
+    "Update sheet: GOOD": {
+      "main": [
+        []
+      ]
+    },
+    "route compliance agent": {
+      "main": [
+        [
+          {
+            "node": "Merge2",
+            "type": "main",
+            "index": 1
+          },
+          {
+            "node": "Append or update row in sheet5",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Logistics Network",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "CompliantData",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Logistics Network",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "CompliantData",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Logistics Network": {
+      "main": [
+        [
+          {
+            "node": "Merge Datasets1",
+            "type": "main",
+            "index": 1
+          },
+          {
+            "node": "Split Out",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Datasets1": {
+      "main": [
+        [
+          {
+            "node": "Dijkstra Solver",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Append or update row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Order Data1": {
+      "main": [
+        []
+      ]
+    },
+    "weather forecast": {
+      "main": [
+        [
+          {
+            "node": "Parse Weather & Assess Risk",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "add cities": {
+      "main": [
+        [
+          {
+            "node": "map input for agent",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Append or update row in sheet2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript2",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Append or update row in sheet1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out": {
+      "main": [
+        [
+          {
+            "node": "weather forecast",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Weather & Assess Risk": {
+      "main": [
+        [
+          {
+            "node": "add cities",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "map input for agent1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "map input for agent": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript2": {
+      "main": [
+        [
+          {
+            "node": "batch compliance agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append or update row in sheet1": {
+      "main": [
+        []
+      ]
+    },
+    "map input for agent1": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge1": {
+      "main": [
+        [
+          {
+            "node": "route compliance agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge2": {
+      "main": [
+        [
+          {
+            "node": "Decision Agent1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model2": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Decision Agent1",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript4": {
+      "main": [
+        [
+          {
+            "node": "Append or update row in sheet3",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Code in JavaScript5",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript5": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Generate feedback",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Shipment authorized",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Dijkstra Solver": {
+      "main": [
+        [
+          {
+            "node": "DPP Missing Data Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings OpenAI": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Route_Knowledge",
+            "type": "ai_embedding",
+            "index": 0
+          },
+          {
+            "node": "Insert Data to Store",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Default Data Loader": {
+      "ai_document": [
+        [
+          {
+            "node": "Insert Data to Store",
+            "type": "ai_document",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download file": {
+      "main": [
+        [
+          {
+            "node": "Insert Data to Store",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route_Knowledge": {
+      "ai_tool": [
+        [
+          {
+            "node": "route compliance agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "route compliance agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "batch compliance agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings OpenAI1": {
+      "ai_embedding": [
+        [
+          {
+            "node": "DPP_knowledge",
+            "type": "ai_embedding",
+            "index": 0
+          },
+          {
+            "node": "Insert Data to Store1",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Default Data Loader1": {
+      "ai_document": [
+        [
+          {
+            "node": "Insert Data to Store1",
+            "type": "ai_document",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download file1": {
+      "main": [
+        [
+          {
+            "node": "Insert Data to Store1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "DPP_knowledge": {
+      "ai_tool": [
+        [
+          {
+            "node": "batch compliance agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CompliantData": {
+      "main": [
+        [
+          {
+            "node": "Merge Datasets1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        []
+      ]
+    },
+    "Structured Output Parser1": {
+      "ai_outputParser": [
+        []
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false
+  },
+  "versionId": "22fa4a08-217d-4f2c-b98f-b2f42549dc25",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "81bb26d0ed1f3dd0a3a58476f6b06e9ecf66ead35e6d6ba63f0d8005867dd888"
+  },
+  "id": "uRd8WH1YGFkDLyLo",
+  "tags": []
+}
